@@ -39,7 +39,7 @@ Projects 4 and 5 form a deliberate pipeline: Project 4 builds the dataset, Proje
 - **STATA** — panel data estimation (xtset, xtreg, areg), IV regression, shift-share instruments
 - **R** — tidyverse, ggplot2, fixest, R Markdown
 - **Web Scraping** — BeautifulSoup, requests
-- **NLP** — Loughran-McDonald financial dictionary, FinBERT, LDA topic modelling
+- **NLP** — Loughran-McDonald financial dictionary, FinBERT, LDA topic modelling (gensim)
 - **Geospatial** — geopandas, matplotlib, shapefiles
 
 ---
@@ -73,19 +73,30 @@ Output: `04_central_bank_scraper/data/brics_mpc_statements_v2.csv`
 
 ## Project 5 — Monetary Policy Sentiment Across BRICS
 
-**Status: ✅ Notebooks 1 & 2 Complete | Notebook 3 (LDA) In Progress**
+**Status: ✅ Complete — All 3 Notebooks**
 
-Two-layer sentiment analysis on the 302-statement corpus.
+Three-notebook NLP pipeline on the 302-statement corpus.
 
-**Layer 1 — Loughran-McDonald Dictionary (primary)**
-Net sentiment and uncertainty scores computed for all 302 statements. Key finding: post-2022 divergence between CBR (sharply more negative and uncertain following the Russia-Ukraine war and sanctions shock) and PBOC (stable to improving) is the strongest event-driven signal in the dataset. Bank sentiment rankings — SARB ≈ CBR (most negative) > RBI > PBOC (most positive) — are consistent with macroeconomic context and stable across time.
+### Notebook 1 — Text Cleaning and Preprocessing
+Boilerplate stripping, SARB date repair, date parsing, spaCy lemmatisation and stopword removal. Output: `brics_mpc_cleaned.csv`
 
-**Layer 2 — FinBERT (robustness check)**
-Run on a stratified 40-statement sample. Spearman correlation with LM net scores: 0.441 (p=0.004). Both methods produce identical bank-level sentiment rankings, validating the LM scores as the primary measure.
+### Notebook 2 — Sentiment Analysis
+**Layer 1 — Loughran-McDonald Dictionary (primary):** Net sentiment and uncertainty scores computed for all 302 statements.
 
-**Notebook 3 (forthcoming):** LDA topic modelling on `text_clean` using gensim. Goal: identify trade fragmentation and currency divergence topics and examine how their prevalence and associated sentiment have shifted post-2022.
+**Layer 2 — FinBERT robustness check:** Run on a stratified 40-statement sample. Spearman correlation with LM net scores: 0.441 (p=0.004). Both methods produce identical bank-level sentiment rankings.
 
-Outputs: `05_monetary_policy_sentiment/data/brics_mpc_sentiment.csv`
+Key finding: post-2022 divergence between CBR (sharply more negative and uncertain) and PBOC (stable to improving) is the strongest event-driven signal in the dataset. Bank sentiment rankings — SARB ≈ CBR (most negative) > RBI > PBOC (most positive) — are consistent across both methods.
+
+Output: `brics_mpc_sentiment.csv`
+
+### Notebook 3 — LDA Topic Modelling
+Nine topics identified via coherence scoring (k=9, c_v=0.505). Near-perfect bank-topic segregation: CBR → Monetary Policy Decisions, SARB → Inflation & Growth Outlook, RBI → Liquidity & Rate Decisions, PBOC → Financial Reform & Capital Markets.
+
+Key finding: The **Global Economy & Currency** topic — characterised by vocabulary including crisis, currency, imbalance, trade, capital flows, and IMF — is assigned exclusively to PBOC and is the only PBOC topic with negative net sentiment (-0.008). When PBOC engages with international monetary dynamics, its tone turns negative — a signal consistent with China's exposure to trade fragmentation pressures.
+
+Topic-sentiment interaction confirms: CBR and SARB are the most negative and uncertain institutions (lm_net=-0.015, lm_uncertainty=0.017 for both dominant topics). PBOC's domestic communications are positive and low-uncertainty; its international monetary topic is the exception.
+
+Outputs: `brics_mpc_final.csv`, `lda_visualisation.html`, `topic_sentiment_interaction.png`
 
 ---
 
@@ -97,8 +108,7 @@ Outputs: `05_monetary_policy_sentiment/data/brics_mpc_sentiment.csv`
 | 02 — STATA | 🔲 Planned |
 | 03 — R | 🔲 Planned |
 | 04 — Web Scraping | ✅ Complete |
-| 05 — Text2Data (NB1 + NB2) | ✅ Complete |
-| 05 — Text2Data (NB3 LDA) | 🔄 In Progress |
+| 05 — Text2Data (NB1 + NB2 + NB3) | ✅ Complete |
 | 06 — Geospatial | 🔲 Planned |
 
 ---
