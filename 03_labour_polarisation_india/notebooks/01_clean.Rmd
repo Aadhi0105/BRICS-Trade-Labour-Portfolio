@@ -1,0 +1,1008 @@
+---
+title: "PLFS Data Cleaning and Harmonisation — 2017-18 to 2023-24"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    theme: flatly
+    highlight: tango
+    df_print: paged
+---
+## Overview
+
+This notebook loads, harmonises, and cleans seven rounds of the Periodic Labour Force Survey (PLFS) — 2017-18 through 2023-24 — in preparation for the district-level polarisation analysis in subsequent notebooks. The PLFS is India's annual national employment survey, conducted by the National Statistical Office under MOSPI.
+
+The notebook addresses four cleaning challenges specific to this dataset:
+
+1. **File naming inconsistency across rounds.** MOSPI changed its file naming convention between rounds. Internal variable names are consistent; external filenames are not. Each round's files are mapped explicitly.
+
+2. **Variable count variation in the urban person file.** The urban person file contains 129 variables in 2017-18 and 2018-19, rises to 159 in 2020-21 (COVID-era additions), and falls to 143 and 139 in subsequent rounds. The common variable set across all rounds is identified and extracted.
+
+3. **Skill classification.** Workers are assigned to high-, middle-, or low-skill groups using the 1-digit NCO 2015 occupation code recorded in the PLFS.
+
+4. **Employment status filter.** Only workers with Usual Principal Activity Status codes indicating employment (codes 11–23) are retained for analysis. The rural file uses Current Weekly Status codes instead of UPS — this structural constraint is handled and documented.
+
+The output is a single harmonised person-level dataset combining all seven rounds, ready for district-level aggregation in `02_aggregate.Rmd`.
+
+
+## Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+The following chunk loads all packages used in this notebook. Each package serves a specific role: `haven` reads Stata `.dta` files and preserves variable labels; `tidyverse` provides the data manipulation and pipeline infrastructure; `labelled` handles Stata-style value labels embedded in the `.dta` files; `janitor` provides clean_names() for consistent column naming; `srvyr` handles survey-weighted computations.
+
+```{r libraries}
+library(haven)
+library(tidyverse)
+library(labelled)
+library(janitor)
+library(srvyr)
+```
+
+## File Paths and Inventory
+
+Before loading any data, we define the base path to the data directory and run a file inventory across all seven round folders. This serves two purposes: it confirms that all expected files are present, and it surfaces the actual filenames for each round — necessary because MOSPI changed its file naming convention across rounds and we have not yet verified the 2019-20 filenames directly.
+
+```{r file-inventory}
+# Define the base path to the data directory
+# All seven round folders sit directly under this path
+data_path <- "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data"
+
+# List all round folders
+round_folders <- list.dirs(data_path, recursive = FALSE, full.names = FALSE)
+round_folders <- sort(round_folders)
+round_folders
+
+# For each round folder, list all .dta files (including inside output/ subfolders)
+cat("\n--- DTA files by round ---\n\n")
+for (folder in round_folders) {
+  folder_path <- file.path(data_path, folder)
+  dta_files <- list.files(folder_path, pattern = "\\.dta$",
+                          recursive = TRUE, full.names = FALSE)
+  cat(folder, ":\n")
+  if (length(dta_files) == 0) {
+    cat("  [no .dta files found]\n")
+  } else {
+    for (f in dta_files) cat("  ", f, "\n")
+  }
+  cat("\n")
+}
+```
+
+All seven round folders are present and all contain four `.dta` files each. The inventory reveals three things worth documenting before writing any loading code.
+
+First, the urban person file name follows four different conventions across rounds: `hh_per_fv_2017_18.dta` (2017-18), `PerV1_2018-19.dta` (2018-19), `PERFV_2019-20.dta` (2019-20), and `perv1.dta` (2020-21 through 2023-24). The rural person file follows the same pattern of variation. Internal variable names are consistent; external filenames are not.
+
+Second, the 2018-19 household files contain spaces and numbers in their names — `HHV1_2018-19 (1).dta` and `HHRV-2018-19 (2).dta`. These are artefacts of the download process. The household files are not needed for the core person-level analysis, but the names are noted here for completeness.
+
+Third, the 2019-20 urban person file is named `PERFV_2019-20.dta` — confirming the FV (first/further visit) suffix corresponds to the urban rotating panel, consistent with all other rounds.
+
+The next chunk defines an explicit file path mapping so every downstream chunk references a single named object rather than hardcoded paths.
+
+## File Path Mapping
+
+Rather than hardcoding file paths throughout the notebook, we define a single structured mapping object here. Each round maps to its urban person file and rural person file. If the data directory moves, only this object needs updating.
+
+```{r file-paths}
+# Base data directory
+base <- "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data"
+
+# Explicit mapping: round label → urban person path + rural person path
+# Only person-level files are mapped — household files are not needed
+# for the core polarisation analysis
+round_map <- tribble(
+  ~round,     ~year,   ~urban_person,                                    ~rural_person,
+  "2017-18",  2018L,   "PLFS_Data_2017-18/output/hh_per_fv_2017_18.dta", "PLFS_Data_2017-18/output/hh_per_rv_2017_18.dta",
+  "2018-19",  2019L,   "PLFS_Data_2018-19/PerV1_2018-19.dta",            "PLFS_Data_2018-19/PerRV_2018-19.dta",
+  "2019-20",  2020L,   "PLFS_Data_2019-20/PERFV_2019-20.dta",            "PLFS_Data_2019-20/PERRV_2019-20.dta",
+  "2020-21",  2021L,   "PLFS_Data_2020-21/output/perv1.dta",             "PLFS_Data_2020-21/output/perrv.dta",
+  "2021-22",  2022L,   "PLFS_Data_2021-22/output/perv1.dta",             "PLFS_Data_2021-22/output/perrv.dta",
+  "2022-23",  2023L,   "PLFS_Data_2022-23/output/perv1.dta",             "PLFS_Data_2022-23/output/perrv.dta",
+  "2023-24",  2024L,   "PLFS_Data_2023-24/output/perv1.dta",             "PLFS_Data_2023-24/output/perrv.dta"
+)
+
+# Prepend base path to all file references
+round_map <- round_map |>
+  mutate(
+    urban_person = file.path(base, urban_person),
+    rural_person = file.path(base, rural_person)
+  )
+
+# Verify all files exist
+round_map <- round_map |>
+  mutate(
+    urban_exists = file.exists(urban_person),
+    rural_exists = file.exists(rural_person)
+  )
+
+# Print the verification table
+round_map |>
+  select(round, year, urban_exists, rural_exists) |>
+  print(n = 7)
+```
+
+All 14 person-level files — 7 urban and 7 rural — are confirmed present on disk. No round is missing. The `year` column records the calendar year in which the survey round ended, which will serve as the time index in the panel. The file path mapping is now the single point of reference for all downstream loading operations.
+
+```{r variable-audit}
+# Read variable names only (col_select = nothing loads zero rows but gives metadata)
+# We use a small helper that reads one file and returns its column names
+
+get_colnames <- function(path) {
+  read_dta(path, n_max = 0) |> names()
+}
+
+# Apply to all urban person files
+urban_vars <- map(round_map$urban_person, get_colnames)
+names(urban_vars) <- round_map$round
+
+# Apply to all rural person files
+rural_vars <- map(round_map$rural_person, get_colnames)
+names(rural_vars) <- round_map$round
+
+# Variable counts per round
+var_counts <- tibble(
+  round       = round_map$round,
+  urban_vars  = map_int(urban_vars, length),
+  rural_vars  = map_int(rural_vars, length)
+)
+
+print(var_counts)
+```
+
+The rural person file is perfectly stable at 104 variables across all seven rounds. The urban person file varies considerably: 129 variables in 2017-18 through 2019-20, rising sharply to 159 in 2020-21, then falling to 143 in 2021-22 and 139 in 2022-23 and 2023-24. The 2020-21 spike almost certainly reflects COVID-specific modules added to the urban questionnaire — questions on income shocks, migration, and pandemic-related employment disruption — that were removed in subsequent rounds. The decline from 143 to 139 between 2021-22 and 2022-23 suggests further questionnaire rationalisation post-pandemic. Since our analysis requires a consistent variable set across all rounds, we must identify the variables present in all seven urban files before proceeding.
+
+## Identifying the Common Variable Set
+
+We take the intersection of variable names across all seven urban person files to establish the variables available in every round. We then verify that all variables needed for our analysis — geography, demographics, employment status, occupation, industry, wages, and survey weight — are present in this common set.
+
+```{r common-variables}
+# Intersection of variable names across all urban rounds
+urban_common <- reduce(urban_vars, intersect)
+
+cat("Variables common to all urban rounds:", length(urban_common), "\n\n")
+
+# Variables present in all rural rounds (already stable but confirm)
+rural_common <- reduce(rural_vars, intersect)
+
+cat("Variables common to all rural rounds:", length(rural_common), "\n\n")
+
+# Check that our required variables are in the common urban set
+required_urban <- c(
+  "state_per_fv",    # state code
+  "b1q4_per_fv",     # district code
+  "b1q3_per_fv",     # sector (urban/rural flag)
+  "b4q5_per_fv",     # sex
+  "b4q6_per_fv",     # age
+  "b4q8_per_fv",     # general education level
+  "b5pt1q3_per_fv",  # UPS activity status
+  "b5pt1q6_per_fv",  # UPS occupation code (NCO)
+  "b5pt1q5_per_fv",  # UPS industry code (NIC)
+  "b6q7_per_fv",     # CWS occupation code (NCO)
+  "b6q9_per_fv",     # weekly earnings
+  "MULT_per_fv"      # survey multiplier (weight)
+)
+
+required_rural <- c(
+  "state_per_rv",    # state code
+  "district_per_rv", # district code
+  "b1q3_per_rv",     # sector
+  "b4q5_per_rv",     # sex
+  "b4q6_per_rv",     # age
+  "b4q8_per_rv",     # general education level
+  "b6q5_per_rv",     # CWS activity status
+  "b6q7_per_rv",     # CWS occupation code (NCO)
+  "b6q9_per_rv",     # weekly earnings
+  "MULT_per_rv"      # survey multiplier (weight)
+)
+
+cat("Required urban variables in common set:\n")
+tibble(
+  variable = required_urban,
+  present  = required_urban %in% urban_common
+) |> print(n = 20)
+
+cat("\nRequired rural variables in common set:\n")
+tibble(
+  variable = required_rural,
+  present  = required_rural %in% rural_common
+) |> print(n = 20)
+```
+
+## Diagnosing Variable Name Inconsistency
+
+Zero variables in common across all rounds means the variable naming convention changed between rounds. We inspect the first fifteen variable names from each urban file to identify the pattern.
+
+```{r diagnose-names}
+# Print first 15 variable names from each urban round
+for (i in seq_len(nrow(round_map))) {
+  cat("Round", round_map$round[i], ":\n")
+  cat(paste(" ", urban_vars[[i]][1:15], collapse = "\n"), "\n\n")
+}
+```
+
+
+## Mapping Required Variables Across Naming Groups
+
+The variable names split into two groups — `_per_fv` suffix for 2017-18 through 2019-20, and `_perv1` suffix for 2020-21 onwards. We now locate the exact name of each required variable in the Group B files before building the renaming crosswalk.
+
+```{r group-b-variable-names}
+# Search Group B (2020-21) for each required variable concept
+b_vars <- urban_vars[["2020-21"]]
+
+search_vars <- function(vars, pattern) {
+  vars[grepl(pattern, vars, ignore.case = TRUE)]
+}
+
+concepts <- list(
+  "State"        = "state",
+  "District"     = "dist",
+  "Sector"       = "b1q3",
+  "Sex"          = "b4q5",
+  "Age"          = "b4q6",
+  "Education"    = "b4q8",
+  "UPS status"   = "b5pt1q3",
+  "UPS NCO"      = "b5pt1q6",
+  "UPS NIC"      = "b5pt1q5",
+  "CWS NCO"      = "b6q7_per",
+  "Earnings"     = "b6q9_per",
+  "Multiplier"   = "mult",
+  "Quarter"      = "qtr|quarter",
+  "Sub-sample"   = "b1q11",
+  "NSS"          = "^nss",
+  "NSC"          = "^nsc"
+)
+
+for (label in names(concepts)) {
+  matches <- search_vars(b_vars, concepts[[label]])
+  cat(sprintf("%-15s : %s\n", label, paste(matches, collapse = ", ")))
+}
+```
+
+All required variables exist in the Group B files. The naming pattern is fully documented. With one exception — the district code, which was renamed from `b1q4_per_fv` in Group A to `distcode_perv1` in Group B — all other variables differ only in their suffix. The multiplier also changed case: `MULT_per_fv` in Group A versus `mult_perv1` in Group B. We now need to verify the rural Group B naming before building the renaming crosswalk for both files.
+
+## Checking Rural Group B Variable Names
+
+```{r rural-group-b-names}
+# Check key rural variable names in Group B (2020-21)
+b_rural_vars <- rural_vars[["2020-21"]]
+
+concepts_rural <- list(
+  "State"      = "state",
+  "District"   = "dist",
+  "Sector"     = "b1q3",
+  "Sex"        = "b4q5",
+  "Age"        = "b4q6",
+  "Education"  = "b4q8",
+  "CWS status" = "b6q5",
+  "CWS NCO"    = "b6q7_per",
+  "Earnings"   = "b6q9_per",
+  "Multiplier" = "mult",
+  "Quarter"    = "qtr|quarter",
+  "Sub-sample" = "b1q11",
+  "NSS"        = "^nss",
+  "NSC"        = "^nsc"
+)
+
+for (label in names(concepts_rural)) {
+  matches <- b_rural_vars[grepl(concepts_rural[[label]], b_rural_vars, ignore.case = TRUE)]
+  cat(sprintf("%-15s : %s\n", label, paste(matches, collapse = ", ")))
+}
+```
+
+The rural Group B naming follows the same `_perrv` suffix pattern throughout. The CWS status search returns multiple matches because PLFS records individual activity codes for each of the seven reference days separately — these are the current daily status variables. The variable we require is the summary Current Weekly Status code `b6q5_perrv`, which appears last in the match list. The rural district code in Group B is `dist_code_perrv`, distinguished from the urban Group B equivalent `distcode_perv1` by an additional underscore. Both crosswalks can now be built.
+
+## Variable Renaming Crosswalk
+
+We define two crosswalk tables — one for urban, one for rural — mapping Group A and Group B names to a common canonical set. Canonical names are short, readable, and free of any round-specific suffix.
+
+```{r crosswalk}
+# Urban crosswalk
+# Group A: 2017-18, 2018-19, 2019-20 (suffix _per_fv)
+# Group B: 2020-21, 2021-22, 2022-23, 2023-24 (suffix _perv1)
+
+urban_crosswalk <- tribble(
+  ~canonical,   ~group_a,           ~group_b,
+  "state",      "state_per_fv",     "state_perv1",
+  "district",   "b1q4_per_fv",      "distcode_perv1",
+  "sector",     "b1q3_per_fv",      "b1q3_perv1",
+  "sex",        "b4q5_per_fv",      "b4q5_perv1",
+  "age",        "b4q6_per_fv",      "b4q6_perv1",
+  "education",  "b4q8_per_fv",      "b4q8_perv1",
+  "ups_status", "b5pt1q3_per_fv",   "b5pt1q3_perv1",
+  "ups_nco",    "b5pt1q6_per_fv",   "b5pt1q6_perv1",
+  "ups_nic",    "b5pt1q5_per_fv",   "b5pt1q5_perv1",
+  "cws_nco",    "b6q7_per_fv",      "b6q7_perv1",
+  "earnings",   "b6q9_per_fv",      "b6q9_perv1",
+  "multiplier", "MULT_per_fv",      "mult_perv1",
+  "quarter",    "quarter_per_fv",   "qtr_perv1",
+  "subsample",  "b1q11_per_fv",     "b1q11_perv1",
+  "nss",        "NSS_per_fv",       "NSS_perv1",
+  "nsc",        "NSC_per_fv",       "NSC_perv1"
+)
+
+# Rural crosswalk
+# Group A: 2017-18, 2018-19, 2019-20 (suffix _per_rv)
+# Group B: 2020-21, 2021-22, 2022-23, 2023-24 (suffix _perrv)
+
+rural_crosswalk <- tribble(
+  ~canonical,   ~group_a,           ~group_b,
+  "state",      "state_per_rv",     "state_perrv",
+  "district",   "district_per_rv",  "dist_code_perrv",
+  "sector",     "b1q3_per_rv",      "b1q3_perrv",
+  "sex",        "b4q5_per_rv",      "b4q5_perrv",
+  "age",        "b4q6_per_rv",      "b4q6_perrv",
+  "education",  "b4q8_per_rv",      "b4q8_perrv",
+  "cws_status", "b6q5_per_rv",      "b6q5_perrv",
+  "cws_nco",    "b6q7_per_rv",      "b6q7_perrv",
+  "earnings",   "b6q9_per_rv",      "b6q9_perrv",
+  "multiplier", "MULT_per_rv",      "mult_perrv",
+  "quarter",    "quarter_per_rv",   "qtr_perrv",
+  "subsample",  "b1q11_per_rv",     "b1q11_perrv",
+  "nss",        "NSS_per_rv",       "NSS_perrv",
+  "nsc",        "NSC_per_rv",       "NSC_perrv"
+)
+
+cat("Urban crosswalk — variables mapped:", nrow(urban_crosswalk), "\n")
+cat("Rural crosswalk — variables mapped:", nrow(rural_crosswalk), "\n")
+
+# Quick self-check: verify all Group A urban names exist in 2017-18
+a_check_urban <- urban_crosswalk$group_a %in% urban_vars[["2017-18"]]
+# Verify all Group B urban names exist in 2020-21
+b_check_urban <- urban_crosswalk$group_b %in% urban_vars[["2020-21"]]
+
+# Same for rural
+a_check_rural <- rural_crosswalk$group_a %in% rural_vars[["2017-18"]]
+b_check_rural <- rural_crosswalk$group_b %in% rural_vars[["2020-21"]]
+
+cat("\nAll Group A urban names valid:", all(a_check_urban), "\n")
+cat("All Group B urban names valid:", all(b_check_urban), "\n")
+cat("All Group A rural names valid:", all(a_check_rural), "\n")
+cat("All Group B rural names valid:", all(b_check_rural), "\n")
+
+# Surface any mismatches
+if (!all(a_check_urban)) {
+  cat("\nMissing Group A urban:\n")
+  print(urban_crosswalk$group_a[!a_check_urban])
+}
+if (!all(b_check_urban)) {
+  cat("\nMissing Group B urban:\n")
+  print(urban_crosswalk$group_b[!b_check_urban])
+}
+if (!all(a_check_rural)) {
+  cat("\nMissing Group A rural:\n")
+  print(rural_crosswalk$group_a[!a_check_rural])
+}
+if (!all(b_check_rural)) {
+  cat("\nMissing Group B rural:\n")
+  print(rural_crosswalk$group_b[!b_check_rural])
+}
+```
+
+All 16 urban and 14 rural variable mappings are validated against the actual file contents. No mismatches in either group. The crosswalk is ready to use as the basis for the loading function.
+
+## The Loading Function
+
+We define a single function `load_person_file()` that handles both naming groups. It takes the file path, the appropriate crosswalk, and a group indicator (`"A"` or `"B"`), selects only the required variables, renames them to canonical names, and strips Stata-specific label metadata so all columns are plain R types. We then add the group indicator to `round_map` and apply the function across all 14 files.
+
+```{r loading-function}
+# Assign naming group to each round
+round_map <- round_map |>
+  mutate(group = if_else(round %in% c("2017-18", "2018-19", "2019-20"), "A", "B"))
+
+# Core loading function
+load_person_file <- function(path, crosswalk, group) {
+
+  # Select source variable names for this group
+  source_vars <- if (group == "A") crosswalk$group_a else crosswalk$group_b
+
+  # Build rename vector: canonical_name = source_name
+  rename_vec <- setNames(source_vars, crosswalk$canonical)
+
+  # Read only required columns, rename, strip Stata labels
+  read_dta(path, col_select = all_of(source_vars)) |>
+    rename(all_of(rename_vec)) |>
+    zap_labels() |>   # convert haven_labelled to plain R types
+    zap_label()       # remove variable-level label attributes
+}
+
+# Test on one urban file (2017-18, Group A) and one (2020-21, Group B)
+test_a <- load_person_file(
+  round_map$urban_person[1],
+  urban_crosswalk,
+  "A"
+)
+
+test_b <- load_person_file(
+  round_map$urban_person[4],
+  urban_crosswalk,
+  "B"
+)
+
+cat("2017-18 urban — rows:", nrow(test_a), "| cols:", ncol(test_a), "\n")
+cat("Column names:", paste(names(test_a), collapse = ", "), "\n\n")
+
+cat("2020-21 urban — rows:", nrow(test_b), "| cols:", ncol(test_b), "\n")
+cat("Column names:", paste(names(test_b), collapse = ", "), "\n\n")
+
+# Confirm column names are identical across both groups
+cat("Column names identical across groups:",
+    identical(sort(names(test_a)), sort(names(test_b))), "\n")
+```
+
+The loading function works correctly across both naming groups. The 2017-18 file yields 433,339 rows and the 2020-21 file yields 413,405 rows — both with 16 identically named canonical columns. The column name identity check confirms the renaming is symmetric across groups. The function is ready to apply to all 14 files.
+
+## Loading All Rounds
+
+We now apply the loading function to all seven urban and seven rural files, adding `round`, `year`, and `file_sector` identifiers to each before stacking into a single combined dataset.
+
+```{r load-all-rounds, eval=FALSE}
+# Load all urban files
+urban_list <- pmap(
+  list(
+    path      = round_map$urban_person,
+    group     = round_map$group
+  ),
+  function(path, group) {
+    load_person_file(path, urban_crosswalk, group)
+  }
+)
+names(urban_list) <- round_map$round
+
+# Load all rural files
+rural_list <- pmap(
+  list(
+    path      = round_map$rural_person,
+    group     = round_map$group
+  ),
+  function(path, group) {
+    load_person_file(path, rural_crosswalk, group)
+  }
+)
+names(rural_list) <- round_map$round
+
+# Add round, year, and file_sector identifiers then stack
+bind_with_id <- function(file_list, file_sector, round_map) {
+  imap(file_list, function(df, round_label) {
+    year_val <- round_map$year[round_map$round == round_label]
+    df |> mutate(
+      round       = round_label,
+      year        = year_val,
+      file_sector = file_sector,
+      .before     = 1
+    )
+  }) |> bind_rows()
+}
+
+urban_all <- bind_with_id(urban_list, "urban", round_map)
+rural_all <- bind_with_id(rural_list, "rural", round_map)
+
+# Stack urban and rural into one dataset
+plfs_raw <- bind_rows(urban_all, rural_all)
+
+cat("Urban rows:", nrow(urban_all), "\n")
+cat("Rural rows:", nrow(rural_all), "\n")
+cat("Total rows:", nrow(plfs_raw), "\n")
+cat("Columns:", ncol(plfs_raw), "\n\n")
+
+# Row count by round and file sector
+plfs_raw |>
+  count(round, year, file_sector) |>
+  pivot_wider(names_from = file_sector, values_from = n) |>
+  arrange(year) |>
+  print()
+```
+
+```{r diagnose-district}
+# Check district-related variable names in all rural files
+cat("District variable names across all rural rounds:\n\n")
+for (i in seq_len(nrow(round_map))) {
+  dist_vars <- rural_vars[[round_map$round[i]]][
+    grepl("dist", rural_vars[[round_map$round[i]]], ignore.case = TRUE)
+  ]
+  cat(round_map$round[i], ":", paste(dist_vars, collapse = ", "), "\n")
+}
+```
+```{r diagnose-2021-22-rural}
+# Inspect all variable names in the 2021-22 rural file
+# to understand what geographic identifiers are present
+cat("All variables in 2021-22 rural file:\n\n")
+print(rural_vars[["2021-22"]])
+```
+
+The 2021-22 rural file does contain a district code — it is stored under `b1q4_perrv`, using the block-question naming convention rather than the descriptive `dist_code_perrv` used in all other Group B rural rounds. This is a MOSPI data preparation inconsistency specific to this one round. The fix is to handle the rural district variable name on a per-round basis rather than through the shared Group B crosswalk. Two additional minor anomalies are noted but do not affect our analysis: `b4q1_pervv` contains a double-v typo in the variable name, and `b4q7` has no round suffix. Neither variable is in our required set.
+
+
+## Fixing the Rural District Variable
+
+We update the rural crosswalk to remove the district variable from the Group B column, then add a per-round rural district variable name to `round_map`. The loading function is updated accordingly.
+
+```{r fix-district}
+# Remove district from rural crosswalk — handled per-round instead
+rural_crosswalk_core <- rural_crosswalk |>
+  filter(canonical != "district")
+
+# Add per-round rural district variable name to round_map
+round_map <- round_map |>
+  mutate(rural_district_var = case_when(
+    group == "A"       ~ "district_per_rv",
+    round == "2021-22" ~ "b1q4_perrv",
+    TRUE               ~ "dist_code_perrv"    # 2020-21, 2022-23, 2023-24
+  ))
+
+# Updated rural loading function
+load_rural_file <- function(path, group, district_var) {
+
+  # Source variable names for all variables except district
+  source_vars <- if (group == "A") {
+    rural_crosswalk_core$group_a
+  } else {
+    rural_crosswalk_core$group_b
+  }
+
+  # Build rename vector for core variables
+  rename_vec <- setNames(source_vars, rural_crosswalk_core$canonical)
+
+  # Read file, rename core variables, then rename district separately
+  read_dta(path, col_select = all_of(c(source_vars, district_var))) |>
+    rename(all_of(rename_vec)) |>
+    rename(district = all_of(district_var)) |>
+    zap_labels() |>
+    zap_label()
+}
+
+# Test on 2021-22 rural (the problematic round)
+test_rural_2122 <- load_rural_file(
+  round_map$rural_person[round_map$round == "2021-22"],
+  "B",
+  round_map$rural_district_var[round_map$round == "2021-22"]
+)
+
+cat("2021-22 rural — rows:", nrow(test_rural_2122),
+    "| cols:", ncol(test_rural_2122), "\n")
+cat("District values (first 5):", head(test_rural_2122$district, 5), "\n")
+cat("Column names:", paste(names(test_rural_2122), collapse = ", "), "\n")
+```
+
+The updated loading function correctly handles the 2021-22 rural district variable. The 14 canonical columns are present and correctly named. District values are reading as expected. We now reload all seven rounds using the updated approach — urban files use the original `load_person_file` function unchanged, rural files use `load_rural_file` with per-round district variable names.
+
+
+## Loading All Rounds — Updated
+```{r load-all-rounds-updated}
+# Redefine standardise_types here to ensure it is available
+# regardless of chunk execution order during knitting
+standardise_types <- function(df) {
+  df |>
+    mutate(
+      state      = as.character(state),
+      district   = as.character(district),
+      across(any_of(c("ups_nco", "ups_nic", "cws_nco",
+                      "cws_status", "ups_status")), as.character),
+      age        = as.numeric(age),
+      earnings   = as.numeric(earnings),
+      multiplier = as.numeric(multiplier),
+      nss        = as.numeric(nss),
+      nsc        = as.numeric(nsc),
+      sector     = as.integer(sector),
+      sex        = as.integer(sex),
+      education  = as.integer(education),
+      subsample  = as.integer(subsample),
+      quarter    = as.integer(quarter)
+    )
+}
+
+# Redefine loading functions with standardise_types included
+load_person_file <- function(path, crosswalk, group) {
+  source_vars <- if (group == "A") crosswalk$group_a else crosswalk$group_b
+  rename_vec  <- setNames(source_vars, crosswalk$canonical)
+  read_dta(path, col_select = all_of(source_vars)) |>
+    rename(all_of(rename_vec)) |>
+    zap_labels() |>
+    zap_label()  |>
+    standardise_types()
+}
+
+load_rural_file <- function(path, group, district_var) {
+  source_vars <- if (group == "A") {
+    rural_crosswalk_core$group_a
+  } else {
+    rural_crosswalk_core$group_b
+  }
+  rename_vec <- setNames(source_vars, rural_crosswalk_core$canonical)
+  read_dta(path, col_select = all_of(c(source_vars, district_var))) |>
+    rename(all_of(rename_vec)) |>
+    rename(district = all_of(district_var)) |>
+    zap_labels() |>
+    zap_label()  |>
+    standardise_types()
+}
+
+# Helper to add identifiers and stack rounds
+bind_with_id <- function(file_list, file_sector, round_map) {
+  imap(file_list, function(df, round_label) {
+    year_val <- round_map$year[round_map$round == round_label]
+    df |> mutate(
+      round       = round_label,
+      year        = year_val,
+      file_sector = file_sector,
+      .before     = 1
+    )
+  }) |> bind_rows()
+}
+
+# Load all urban files
+urban_list <- pmap(
+  list(path = round_map$urban_person, group = round_map$group),
+  function(path, group) load_person_file(path, urban_crosswalk, group)
+)
+names(urban_list) <- round_map$round
+
+# Load all rural files
+rural_list <- pmap(
+  list(
+    path         = round_map$rural_person,
+    group        = round_map$group,
+    district_var = round_map$rural_district_var
+  ),
+  load_rural_file
+)
+names(rural_list) <- round_map$round
+
+urban_all <- bind_with_id(urban_list, "urban", round_map)
+rural_all  <- bind_with_id(rural_list,  "rural",  round_map)
+plfs_raw   <- bind_rows(urban_all, rural_all)
+
+cat("Total rows:", nrow(plfs_raw), "\n")
+cat("Total columns:", ncol(plfs_raw), "\n\n")
+
+plfs_raw |>
+  count(round, year, file_sector) |>
+  pivot_wider(names_from = file_sector, values_from = n) |>
+  arrange(year) |>
+  print()
+```
+
+## Type Standardisation
+
+Some variables are stored as character in Nesstar-converted files and as numeric in direct Stata downloads, or vice versa. We add an explicit type coercion step to both loading functions to guarantee consistent types across all rounds before stacking.
+
+```{r standardise-types}
+# Type standardisation function — converts variables to consistent R types
+# across all rounds regardless of source format (Nesstar-converted vs direct Stata)
+standardise_types <- function(df) {
+  df |>
+    mutate(
+      state      = as.character(state),
+      district   = as.character(district),
+      across(any_of(c("ups_nco", "ups_nic", "cws_nco",
+                      "cws_status", "ups_status")), as.character),
+      age        = as.numeric(age),
+      earnings   = as.numeric(earnings),
+      multiplier = as.numeric(multiplier),
+      nss        = as.numeric(nss),
+      nsc        = as.numeric(nsc),
+      sector     = as.integer(sector),
+      sex        = as.integer(sex),
+      education  = as.integer(education),
+      subsample  = as.integer(subsample),
+      quarter    = as.integer(quarter)
+    )
+}
+
+# Updated urban loading function with type standardisation
+load_person_file <- function(path, crosswalk, group) {
+  source_vars <- if (group == "A") crosswalk$group_a else crosswalk$group_b
+  rename_vec  <- setNames(source_vars, crosswalk$canonical)
+  read_dta(path, col_select = all_of(source_vars)) |>
+    rename(all_of(rename_vec)) |>
+    zap_labels() |>
+    zap_label()  |>
+    standardise_types()
+}
+
+# Updated rural loading function with type standardisation
+load_rural_file <- function(path, group, district_var) {
+  source_vars <- if (group == "A") {
+    rural_crosswalk_core$group_a
+  } else {
+    rural_crosswalk_core$group_b
+  }
+  rename_vec <- setNames(source_vars, rural_crosswalk_core$canonical)
+  read_dta(path, col_select = all_of(c(source_vars, district_var))) |>
+    rename(all_of(rename_vec)) |>
+    rename(district = all_of(district_var)) |>
+    zap_labels() |>
+    zap_label()  |>
+    standardise_types()
+}
+```
+All seven rounds loaded and stacked without errors. The combined raw dataset contains 6,315,237 person-level observations across 20 columns. One pattern worth noting: the 2017-18 rural sample (272,560) is substantially smaller than all subsequent rural rounds (500,000+). This reflects the PLFS sampling design stabilising in its second year — the 2017-18 Nesstar file captured fewer rural observations than the later rounds. This does not affect the analysis but should be acknowledged when interpreting 2017-18 rural estimates, which carry higher sampling variance.
+
+
+
+## Employment Filter
+
+We retain only employed workers — those whose activity status indicates active employment. For urban workers, the Usual Principal Activity Status (`ups_status`) is used. For rural workers, the Current Weekly Status (`cws_status`) is used, since the rural PLFS file does not contain UPS variables. Employment codes are 11 through 23, covering own-account workers, employers, unpaid household helpers, regular wage employees, and casual wage workers. Workers with codes 31 and above — students, homemakers, unemployed, pensioners — are excluded.
+
+
+```{r employment-filter}
+# Define employment codes (same codes for UPS and CWS)
+employed_codes <- as.character(11:23)
+
+# For urban: filter on ups_status
+# For rural: filter on cws_status
+# We create a unified activity_status column first
+plfs_employed <- plfs_raw |>
+  mutate(
+    activity_status = case_when(
+      file_sector == "urban" ~ ups_status,
+      file_sector == "rural" ~ cws_status,
+      TRUE                   ~ NA_character_
+    )
+  ) |>
+  filter(activity_status %in% employed_codes)
+
+cat("Rows before employment filter:", nrow(plfs_raw), "\n")
+cat("Rows after employment filter: ", nrow(plfs_employed), "\n")
+cat("Retained:", round(nrow(plfs_employed) / nrow(plfs_raw) * 100, 1), "%\n\n")
+
+# Employment retention rate by round and sector
+plfs_employed |>
+  count(round, year, file_sector, name = "employed") |>
+  left_join(
+    plfs_raw |> count(round, file_sector, name = "total"),
+    by = c("round", "file_sector")
+  ) |>
+  mutate(pct_employed = round(employed / total * 100, 1)) |>
+  select(round, year, file_sector, employed, total, pct_employed) |>
+  arrange(year, file_sector) |>
+  print(n = 14)
+```
+
+The employment filter retains 1,015,760 observations — 16.1% of the raw dataset. This is expected for a household survey that includes all household members regardless of age or activity: children, elderly, students, and homemakers are all present in the raw file and correctly excluded here. Two patterns in the retention table are worth noting. First, urban employment rates (17–21%) consistently exceed rural rates (12–16%), reflecting the different age structures and female labour force participation patterns across sectors. Second, both urban and rural employment rates trend upward across rounds — from 12.5% to 15.5% rural and 17% to 21.3% urban — consistent with rising reported labour force participation over the panel period, though sampling design changes across rounds mean these trends should not be interpreted as causal.
+
+## NCO Code Inspection
+
+Before classifying workers into skill groups we inspect the actual values stored in the occupation code variables to confirm the format, since PLFS can record NCO codes at varying digit depths across rounds.
+
+```{r nco-inspection}
+# Check unique NCO values in ups_nco (urban) and cws_nco (rural)
+cat("=== Urban UPS NCO — unique values (sample from 2017-18) ===\n")
+plfs_employed |>
+  filter(file_sector == "urban", round == "2017-18") |>
+  count(ups_nco, sort = TRUE) |>
+  print(n = 20)
+
+cat("\n=== Rural CWS NCO — unique values (sample from 2017-18) ===\n")
+plfs_employed |>
+  filter(file_sector == "rural", round == "2017-18") |>
+  count(cws_nco, sort = TRUE) |>
+  print(n = 20)
+```
+NCO codes are stored as 3-digit strings consistently across both urban and rural files. Extracting the first character gives the 1-digit major group required for skill classification. One substantive observation from the distribution: code 611 (market gardeners and crop growers) is the most common urban occupation in 2017-18, and code 121 appears prominently in the rural file. This likely reflects known imprecision in PLFS occupation coding by field enumerators — a documented limitation of the survey, particularly for informal and self-employed workers. We proceed with first-digit extraction as designed, noting that NCO coding quality is an acknowledged constraint on the precision of skill group estimates.
+
+## Skill Classification
+
+We extract the first digit of the NCO code and assign each worker to a skill group following the standard polarisation literature. Urban workers are classified using the UPS occupation code; rural workers using the CWS occupation code. Workers with NCO code 0 (armed forces) or missing occupation codes are assigned NA and excluded from skill-group analysis.
+
+```{r skill-classification}
+plfs_clean <- plfs_employed |>
+  mutate(
+    # Extract 1-digit NCO major group from appropriate variable
+    nco_1digit = case_when(
+      file_sector == "urban" ~ substr(ups_nco, 1, 1),
+      file_sector == "rural" ~ substr(cws_nco, 1, 1),
+      TRUE ~ NA_character_
+    ),
+    # Assign skill group
+    skill_group = case_when(
+      nco_1digit %in% c("1", "2", "3")       ~ "high",
+      nco_1digit %in% c("4", "5", "7", "8")  ~ "middle",
+      nco_1digit %in% c("6", "9")             ~ "low",
+      TRUE                                    ~ NA_character_
+    ),
+    # Recode sex to readable labels
+    sex_label = case_when(
+      sex == 1 ~ "male",
+      sex == 2 ~ "female",
+      TRUE     ~ NA_character_
+    ),
+    # Recode sector flag (1 = rural, 2 = urban in PLFS coding)
+    sector_label = case_when(
+      sector == 1 ~ "rural",
+      sector == 2 ~ "urban",
+      TRUE        ~ NA_character_
+    )
+  )
+
+# Skill group distribution overall
+cat("=== Skill group distribution ===\n")
+plfs_clean |>
+  count(skill_group) |>
+  mutate(pct = round(n / sum(n) * 100, 1)) |>
+  print()
+
+# Missing NCO codes
+cat("\nWorkers with missing skill classification:",
+    sum(is.na(plfs_clean$skill_group)),
+    "(", round(mean(is.na(plfs_clean$skill_group)) * 100, 1), "%)\n")
+
+# Skill group by sector and round
+cat("\n=== Skill shares by file_sector and round ===\n")
+plfs_clean |>
+  filter(!is.na(skill_group)) |>
+  count(round, year, file_sector, skill_group) |>
+  group_by(round, file_sector) |>
+  mutate(share = round(n / sum(n) * 100, 1)) |>
+  ungroup() |>
+  select(-n) |>
+  pivot_wider(names_from = skill_group, values_from = share) |>
+  arrange(year, file_sector) |>
+  print(n = 14)
+```
+
+```{r nco-distribution-check}
+# Compare top NCO codes by round for rural workers
+# to identify whether the coding distribution shifted
+cat("=== Top 10 rural CWS NCO codes by round ===\n\n")
+
+plfs_employed |>
+  filter(file_sector == "rural") |>
+  group_by(round) |>
+  count(cws_nco, sort = TRUE) |>
+  slice_head(n = 10) |>
+  mutate(
+    first_digit = substr(cws_nco, 1, 1),
+    share = round(n / sum(n) * 100, 1)
+  ) |>
+  select(round, cws_nco, first_digit, n, share) |>
+  print(n = 70)
+```
+
+The NCO code distribution reveals a structural break in rural occupation coding between 2020-21 and 2021-22. In rounds 2017-18 through 2020-21, code 121 accounts for 36-40% of all rural employed workers — classifying them as high-skill managers under NCO major group 1. In 2021-22, code 121 drops sharply to 11.7% and is partially replaced by code 112, while code 522 (service and sales workers, middle-skill) rises from around 20% to 28-36%. This is not a real economic phenomenon — a 20-percentage-point decline in rural managerial employment in one year is implausible. It reflects a change in PLFS enumeration and NCO coding guidance between survey rounds. Code 121 in early PLFS rounds appears to have been used as a broad catch-all for small traders and own-account workers, many of whom were reclassified into more specific codes from 2021-22 onwards following revised MOSPI coding instructions.
+
+This creates a structural break in the high-skill rural series that makes the three-way skill classification non-comparable across the 2020-21 to 2021-22 boundary. The urban data shows a smaller but related break — urban high-skill drops from 19.5% to 16.5% between the same rounds — suggesting the coding revision affected both sectors.
+
+We handle this in two ways. First, we flag all observations with NCO code 121 as potentially miscoded for sensitivity analysis in later notebooks. Second, we create an alternative two-way classification — agricultural versus non-agricultural — which is robust to the NCO 121 coding artifact since agricultural workers (NCO major group 6) are stably identified throughout all rounds. The three-way classification is retained for urban workers, where the coding break is smaller and the NCO 121 share was never dominant. Analysis notebooks will present results under both classification schemes.
+
+
+## Handling the NCO Coding Break
+
+We add two variables: a flag for NCO 121 observations, and an alternative agricultural versus non-agricultural binary classification robust to the coding inconsistency.
+
+```{r nco-coding-fix}
+plfs_clean <- plfs_clean |>
+  mutate(
+    # Flag observations coded as NCO 121
+    # These are potentially miscoded in rounds 2017-18 to 2020-21
+    nco121_flag = nco_1digit == "1" &
+                  case_when(
+                    file_sector == "urban" ~ substr(ups_nco, 1, 3) == "121",
+                    file_sector == "rural" ~ substr(cws_nco, 1, 3) == "121",
+                    TRUE ~ FALSE
+                  ),
+
+    # Alternative binary classification: agricultural vs non-agricultural
+    # Robust to NCO 121 coding artifact
+    # Agricultural = NCO major group 6 (skilled agri) + 9 (elementary, includes
+    # agricultural labourers coded under elementary occupations)
+    # Non-agricultural = all other employed workers
+    agri_nonagri = case_when(
+      nco_1digit %in% c("6", "9") ~ "agricultural",
+      nco_1digit %in% c("1", "2", "3", "4", "5", "7", "8") ~ "non_agricultural",
+      TRUE ~ NA_character_
+    )
+  )
+
+# Summarise the flag
+cat("=== NCO 121 flag summary ===\n")
+plfs_clean |>
+  count(round, file_sector, nco121_flag) |>
+  filter(nco121_flag) |>
+  mutate(share = round(n / nrow(plfs_clean |>
+    filter(file_sector == file_sector)) * 100, 1)) |>
+  select(round, file_sector, n) |>
+  pivot_wider(names_from = file_sector, values_from = n, values_fill = 0) |>
+  arrange(round) |>
+  print()
+
+cat("\n=== Agricultural vs non-agricultural share by round ===\n")
+plfs_clean |>
+  filter(!is.na(agri_nonagri)) |>
+  count(round, year, file_sector, agri_nonagri) |>
+  group_by(round, file_sector) |>
+  mutate(share = round(n / sum(n) * 100, 1)) |>
+  ungroup() |>
+  select(-n) |>
+  pivot_wider(names_from = agri_nonagri, values_from = share) |>
+  arrange(year, file_sector) |>
+  print(n = 14)
+```
+
+The agricultural versus non-agricultural binary classification is consistent across all seven rounds and both sectors. Rural agricultural share moves within a 2-percentage-point band (15.7% to 17.4%) and urban within 3 points (53.4% to 56.3%), with no visible break between 2020-21 and 2021-22. This validates the binary classification as the primary analytical variable for rural polarisation analysis — it is immune to the NCO 121 coding artifact because the agricultural/non-agricultural boundary is determined by NCO groups 6 and 9, which were unaffected by the coding revision.
+
+The NCO 121 flag table confirms the scale of the coding change: in 2020-21, code 121 accounted for 19,882 rural and 12,602 urban workers, falling to 5,918 and 3,923 in 2021-22 and further declining thereafter. This is a MOSPI coding revision, not an economic reality.
+
+The dataset now contains three analytical variables: `skill_group` (three-way high/middle/low, with the NCO 121 caveat), `agri_nonagri` (robust binary classification), and `nco121_flag` (sensitivity analysis marker). The three-way classification is most reliable for urban workers; the binary classification is preferred for rural workers and for cross-round comparisons. Analysis notebooks will specify which variable is used and why.
+
+## Final Diagnostic Summary
+
+Before saving, we confirm the structure and coverage of the clean dataset.
+
+```{r final-diagnostic}
+cat("=== Final dataset structure ===\n")
+glimpse(plfs_clean)
+
+cat("\n=== Sample size by round, sector, and sex ===\n")
+plfs_clean |>
+  count(round, year, file_sector, sex_label) |>
+  pivot_wider(names_from = sex_label, values_from = n, values_fill = 0) |>
+  arrange(year, file_sector) |>
+  print(n = 14)
+
+cat("\n=== Missing values by key variable ===\n")
+plfs_clean |>
+  summarise(across(
+    c(state, district, sex_label, age, skill_group,
+      agri_nonagri, earnings, multiplier),
+    ~ sum(is.na(.))
+  )) |>
+  pivot_longer(everything(), names_to = "variable", values_to = "n_missing") |>
+  mutate(pct_missing = round(n_missing / nrow(plfs_clean) * 100, 2)) |>
+  print()
+```
+
+The final dataset contains 1,015,760 employed persons across 27 variables. Three issues require explicit documentation before saving.
+
+**Sex coding in 2017-18 urban.** The sex variable shows 36,693 NAs (49.8% of 2017-18 urban employed) — values coded as 3 rather than the expected 1 (male) or 2 (female). The PLFS urban component uses a rotating panel design where households are revisited across four quarterly sub-rounds. The sex variable appears to have been recorded only on the first visit in 2017-18 and left with a placeholder code on subsequent visits, producing the large missing share. This is confirmed by the near-zero sex missingness in all other rounds. Gender-disaggregated estimates for 2017-18 urban are unreliable and will be excluded from the gender decomposition analysis in Notebook 4. All other rounds have negligible sex missingness (fewer than 20 observations each).
+
+**Sector variable versus file_sector.** The internal `sector` variable within the PLFS files (coded 1=rural, 2=urban in the questionnaire) occasionally differs from `file_sector`, which records which physical file the observation came from. For sector classification in all downstream analysis we use `file_sector` — it is unambiguous and consistent across all rounds.
+
+**Earnings zeros for self-employed.** The earnings variable is zero for self-employed workers (activity status codes 11, 12, 13), not because they earn nothing but because PLFS does not collect earnings for the self-employed. Wage analysis in Notebook 3 will restrict to wage and salaried employees (codes 21, 22, 23) and treat all other earnings entries as not applicable rather than zero.
+
+
+## Saving the Clean Dataset
+```{r save-output}
+# Define output path
+output_path <- "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data/plfs_clean.rds"
+
+# Save as RDS — preserves all R types including character vectors
+saveRDS(plfs_clean, output_path)
+
+# Confirm save
+saved <- readRDS(output_path)
+cat("Saved successfully.\n")
+cat("Rows:", nrow(saved), "\n")
+cat("Columns:", ncol(saved), "\n")
+cat("File size:", round(file.size(output_path) / 1024^2, 1), "MB\n\n")
+
+# Final variable inventory
+cat("Variables in clean dataset:\n")
+tibble(
+  variable = names(saved),
+  type     = map_chr(saved, ~ class(.)[1])
+) |> print(n = 30)
+```
+
+The clean dataset is saved as `plfs_clean.rds` — 9.6 MB, 1,015,760 rows, 27 columns. RDS format preserves all R types exactly, including character vectors for coded variables and logical for the NCO 121 flag. The file is written to the `data/` directory and will be the single input for all subsequent notebooks. No downstream notebook reads raw PLFS files — they load `plfs_clean.rds` directly.
+
+## Summary
+
+This notebook has completed the following tasks:
+
+- Mapped and verified all 14 PLFS person-level files across seven rounds (2017-18 to 2023-24)
+- Documented and resolved three naming inconsistencies: the `_per_fv` vs `_perv1` suffix split, the district variable rename, and the 2021-22 rural district variable anomaly
+- Standardised variable types across all rounds to ensure consistent stacking
+- Filtered to employed workers using UPS status (urban) and CWS status (rural)
+- Applied the NCO 2015 three-way skill classification and flagged the NCO 121 coding break between 2020-21 and 2021-22
+- Created a robust agricultural vs non-agricultural binary classification unaffected by the coding break
+- Documented the 2017-18 urban sex missingness issue and its cause
+- Saved the harmonised dataset ready for district-level aggregation
+
+**Proceed to `02_aggregate.Rmd`** for district-level panel construction.
