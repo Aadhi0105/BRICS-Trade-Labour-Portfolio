@@ -25,8 +25,8 @@ library(tidyverse)
 library(fixest)
 library(scales)
 library(patchwork)
-
-install.packages("sf")
+library(sf)
+library(broom)
 ```
 
 ## Load Data
@@ -207,8 +207,8 @@ get_coefs <- function(model, sector) {
 }
 
 # Install broom if needed
-if (!requireNamespace("broom", quietly = TRUE)) install.packages("broom")
-library(broom)
+#if (!requireNamespace("broom", quietly = TRUE)) install.packages("broom")
+#library(broom)
 
 coefs <- bind_rows(
   get_coefs(m_urban, "Urban"),
