@@ -1,0 +1,316 @@
+---
+title: "Urban-Rural Decomposition — Structural Change Across Sectors"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    theme: flatly
+    highlight: tango
+    df_print: paged
+---
+
+## Overview
+
+This notebook examines whether urban and rural labour market dynamics are structurally distinct across Indian districts. Using the agri/non-agri binary classification from the district panel, we test three questions: how the non-agricultural employment distribution differs between urban and rural sectors; whether districts with high rural non-agricultural shares also show high urban non-agricultural shares within the same geographic unit; and which states show the largest urban-rural gaps in non-agricultural employment structure.
+
+All analysis uses the balanced panel with the minimum cell size threshold of 25. The NCO coding quality constraints established in Notebook 3 apply throughout.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width  = 10,
+  fig.height = 6
+)
+```
+
+```{r libraries}
+library(tidyverse)
+library(patchwork)
+library(scales)
+```
+
+## Load Data
+
+```{r load-data}
+agri <- readRDS("~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data/plfs_agri_panel.rds")
+
+MIN_N <- 25
+
+# Overall non-agricultural panel — balanced, cell-size filtered, sex = all
+nonagri <- agri |>
+  filter(balanced_panel == TRUE,
+         emp_n >= MIN_N,
+         sex == "all",
+         agri_nonagri == "non_agricultural")
+
+cat("Rows:", nrow(nonagri), "\n")
+cat("Districts by sector:\n")
+nonagri |>
+  distinct(state_district, file_sector) |>
+  count(file_sector)
+```
+
+```{r paired-districts}
+# Identify districts present in both urban and rural files
+# across all 7 rounds — these allow direct within-district comparison
+districts_both <- nonagri |>
+  distinct(state_district, file_sector, round) |>
+  pivot_wider(names_from = file_sector,
+              values_from = round,
+              values_fn = list) |>
+  filter(!map_lgl(rural, is.null),
+         !map_lgl(urban, is.null)) |>
+  pull(state_district) |>
+  unique()
+
+cat("Districts with both urban and rural coverage:", length(districts_both), "\n\n")
+
+# Non-agri share for paired districts only
+nonagri_paired <- nonagri |>
+  filter(state_district %in% districts_both)
+
+cat("Paired district panel rows:", nrow(nonagri_paired), "\n")
+cat("By sector:\n")
+nonagri_paired |>
+  distinct(state_district, file_sector) |>
+  count(file_sector)
+```
+
+493 rural and 579 urban districts pass the balanced panel and cell size filters. Of these, 478 appear in both urban and rural files across all rounds, forming the paired district sample used for within-district urban-rural comparisons. The near-symmetry of 478 paired versus 493 total rural districts confirms that most rural districts also have adequate urban coverage.
+
+## Urban vs Rural Distribution Comparison
+
+We compare the distribution of non-agricultural employment shares across urban and rural districts in the same year, and then within the same district.
+
+```{r distribution-comparison}
+# Summary comparison by sector and round
+cat("=== Non-agricultural share distribution by sector ===\n")
+nonagri |>
+  group_by(year, file_sector) |>
+  summarise(
+    n      = n(),
+    mean   = round(mean(agri_share) * 100, 1),
+    sd     = round(sd(agri_share) * 100, 1),
+    p25    = round(quantile(agri_share, 0.25) * 100, 1),
+    median = round(median(agri_share) * 100, 1),
+    p75    = round(quantile(agri_share, 0.75) * 100, 1),
+    .groups = "drop"
+  ) |>
+  pivot_wider(
+    names_from  = file_sector,
+    values_from = c(n, mean, sd, p25, median, p75)
+  ) |>
+  arrange(year) |>
+  select(year, mean_rural, mean_urban, sd_rural, sd_urban,
+         median_rural, median_urban) |>
+  print()
+
+# Overlaid density: urban vs rural for most recent round
+nonagri |>
+  filter(year == 2024) |>
+  ggplot(aes(x = agri_share * 100,
+             fill = file_sector,
+             colour = file_sector)) +
+  geom_density(alpha = 0.3, linewidth = 1) +
+  scale_fill_manual(values  = c(rural = "#4dac26", urban = "#762a83"),
+                    labels  = c(rural = "Rural", urban = "Urban"),
+                    name    = NULL) +
+  scale_colour_manual(values = c(rural = "#4dac26", urban = "#762a83"),
+                      labels = c(rural = "Rural", urban = "Urban"),
+                      name   = NULL) +
+  scale_x_continuous(labels = label_number(suffix = "%"),
+                     limits = c(0, 100)) +
+  labs(title    = "Distribution of non-agricultural employment share — 2023-24",
+       subtitle = "Balanced-panel districts, urban vs rural",
+       caption  = "Source: PLFS unit-level microdata, MOSPI.",
+       x = "Non-agricultural employment share (%)",
+       y = "Density") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position  = "bottom",
+        panel.grid.minor = element_blank(),
+        plot.title       = element_text(face = "bold"))
+```
+
+The two distributions are almost entirely non-overlapping. Rural districts are concentrated between 75-100% non-agricultural (peak near 90%) while urban districts are concentrated between 15-55% (bimodal with peaks near 25% and 45%). The ~40-45 percentage point gap between rural median (~86%) and urban median (~42%) is the urban-rural paradox documented in Notebook 3 — driven by systematic NCO coding differences rather than genuine economic structure. Nevertheless, the distributions are internally informative: the wide urban spread (SD ~20%) indicates genuine cross-district variation in urban employment structure, and the bimodal urban shape suggests two distinct types of urban districts.
+
+The rural SD gradually widens from 12.1 to 14.6 over the panel, indicating increasing geographic divergence among rural districts — some pulling toward lower non-agricultural shares while others remain high.
+
+## Within-District Urban-Rural Comparison
+
+For each district with paired urban-rural coverage, we compare its urban and rural non-agricultural employment shares directly. If urban and rural labour markets within a district are integrated — sharing economic geography, infrastructure, and trade links — we expect a positive correlation. If they are structurally disconnected, the correlation will be near zero.
+
+```{r within-district-scatter}
+# Wide format: one row per district-round with both urban and rural shares
+paired_wide <- nonagri_paired |>
+  select(state_district, state, round, year, file_sector, agri_share) |>
+  pivot_wider(names_from = file_sector, values_from = agri_share) |>
+  filter(!is.na(rural), !is.na(urban))
+
+cat("District-round pairs:", nrow(paired_wide), "\n")
+
+# Correlation between urban and rural shares
+cor_val <- cor(paired_wide$urban, paired_wide$rural,
+               use = "complete.obs")
+cat("Correlation (urban vs rural non-agri share):",
+    round(cor_val, 3), "\n\n")
+
+# Scatter plot — pooled across all rounds
+paired_wide |>
+  ggplot(aes(x = rural * 100, y = urban * 100)) +
+  geom_point(alpha = 0.15, size = 1.2, colour = "#2166ac") +
+  geom_smooth(method = "lm", colour = "#d6604d",
+              linewidth = 1.2, se = TRUE) +
+  geom_abline(slope = 1, intercept = 0,
+              linetype = "dashed", colour = "grey50") +
+  annotate("text", x = 20, y = 90,
+           label = paste0("r = ", round(cor_val, 3)),
+           size = 4.5, colour = "#d6604d", fontface = "bold") +
+  scale_x_continuous(labels = label_number(suffix = "%"),
+                     limits = c(0, 100)) +
+  scale_y_continuous(labels = label_number(suffix = "%"),
+                     limits = c(0, 100)) +
+  labs(title    = "Within-district urban vs rural non-agricultural employment share",
+       subtitle = "Each point is one district-round observation. Dashed line = 45-degree equality line.",
+       caption  = "Paired districts present in both urban and rural files, all rounds pooled.\nSource: PLFS unit-level microdata, MOSPI.",
+       x = "Rural non-agricultural share (%)",
+       y = "Urban non-agricultural share (%)") +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.minor = element_blank(),
+        plot.title       = element_text(face = "bold"))
+```
+
+Two findings from the scatter. First, all 2,410 district-round observations sit below the 45-degree equality line — rural non-agricultural shares are consistently higher than urban non-agricultural shares within the same district, confirming the sectoral paradox documented in Notebook 3 holds at every level of geographic aggregation, not just nationally. Second, the correlation between urban and rural non-agricultural shares within districts is positive but weak at r = 0.255. Districts with higher rural non-agricultural employment tend to also have higher urban non-agricultural employment, but the relationship is loose — the point cloud is very diffuse. This suggests urban and rural labour markets within Indian districts are only partially integrated: geographic factors (infrastructure quality, regional economic character, distance from manufacturing centres) create some co-movement, but the two sectors are largely responding to structurally different forces. The regression line rises from approximately 25% urban at the low end of rural shares to 55% urban at the high end — a 30-point range across the full rural distribution.
+
+## State-Level Urban-Rural Gap
+
+We compute the average urban-rural gap in non-agricultural employment share by state for the most recent round (2023-24), identifying states where the two sectors are most and least divergent.
+
+```{r state-gap}
+# State-level urban-rural gap for 2023-24
+state_gap <- paired_wide |>
+  filter(year == 2024) |>
+  mutate(urban_rural_gap = (rural - urban) * 100) |>
+  group_by(state) |>
+  summarise(
+    n_districts   = n(),
+    mean_rural    = round(mean(rural * 100), 1),
+    mean_urban    = round(mean(urban * 100), 1),
+    mean_gap      = round(mean(urban_rural_gap), 1),
+    .groups = "drop"
+  ) |>
+  filter(n_districts >= 3) |>
+  arrange(mean_gap)
+
+cat("=== State-level urban-rural gap in non-agri share (2023-24) ===\n")
+cat("(Positive gap = rural higher than urban)\n\n")
+print(state_gap, n = 30)
+
+# Plot top and bottom states by gap
+state_gap |>
+  slice(c(1:8, (n() - 7):n())) |>
+  mutate(state = fct_reorder(state, mean_gap)) |>
+  ggplot(aes(y = state)) +
+  geom_segment(aes(x = mean_urban, xend = mean_rural,
+                   yend = state),
+               colour = "grey60", linewidth = 1) +
+  geom_point(aes(x = mean_urban), colour = "#762a83", size = 3) +
+  geom_point(aes(x = mean_rural), colour = "#4dac26", size = 3) +
+  scale_x_continuous(labels = label_number(suffix = "%"),
+                     limits = c(0, 100)) +
+  labs(title    = "Urban-rural gap in non-agricultural employment share by state — 2023-24",
+       subtitle = "Purple = urban mean, Green = rural mean. States with ≥3 paired districts shown.",
+       caption  = "Top and bottom 8 states by gap magnitude shown.\nSource: PLFS unit-level microdata, MOSPI.",
+       x = "Non-agricultural employment share (%)",
+       y = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(panel.grid.minor = element_blank(),
+        plot.title       = element_text(face = "bold"))
+```
+
+The state-level gap table reveals substantial geographic variation. Delhi (state 07) has the smallest urban-rural gap at just 4 percentage points — both urban and rural employment are heavily non-agricultural, consistent with Delhi's near-total urbanisation. Kerala (32) shows the second smallest gap at 8.2 points, consistent with its well-documented balanced development. At the other end, Meghalaya (17) and Himachal Pradesh (02) show gaps of 61.7 and 57.3 points respectively — very high rural non-agricultural shares (87-91%) but very low urban non-agricultural shares (24-25%).
+
+The large-gap states warrant careful interpretation. States like Meghalaya, Himachal Pradesh, Assam (18), and Maharashtra (27) have both very high rural non-agricultural coding (reflecting the NCO manager and service worker over-coding in rural areas) and very low urban non-agricultural shares (reflecting urban NCO 611 agricultural over-coding). The gap is real in the data but its economic interpretation requires caution — it may reflect the geographic concentration of both coding artefacts as much as genuine economic divergence.
+
+States with genuinely interpretable small gaps — Delhi, Kerala, Goa (30 — not shown due to insufficient districts) — are those where economic structure is relatively uniform across the urban-rural divide.
+
+We now add state names to make the plot interpretable.
+
+```{r state-names-plot}
+# State code to name lookup (Census 2011 codes)
+state_names <- tribble(
+  ~state, ~state_name,
+  "01", "Jammu & Kashmir", "02", "Himachal Pradesh",
+  "03", "Punjab",          "05", "Uttarakhand",
+  "06", "Haryana",         "07", "Delhi",
+  "08", "Rajasthan",       "09", "Uttar Pradesh",
+  "10", "Bihar",           "11", "Sikkim",
+  "12", "Arunachal Pradesh","13", "Nagaland",
+  "14", "Manipur",         "15", "Mizoram",
+  "16", "Tripura",         "17", "Meghalaya",
+  "18", "Assam",           "19", "West Bengal",
+  "20", "Jharkhand",       "21", "Odisha",
+  "22", "Chhattisgarh",    "23", "Madhya Pradesh",
+  "24", "Gujarat",         "27", "Maharashtra",
+  "28", "Andhra Pradesh",  "29", "Karnataka",
+  "32", "Kerala",          "33", "Tamil Nadu",
+  "34", "Puducherry"
+)
+
+state_gap_named <- state_gap |>
+  left_join(state_names, by = "state")
+
+# Redraw with state names
+state_gap_named |>
+  slice(c(1:8, (n() - 7):n())) |>
+  mutate(state_name = fct_reorder(state_name, mean_gap)) |>
+  ggplot(aes(y = state_name)) +
+  geom_segment(aes(x = mean_urban, xend = mean_rural, yend = state_name),
+               colour = "grey60", linewidth = 1) +
+  geom_point(aes(x = mean_urban), colour = "#762a83", size = 3) +
+  geom_point(aes(x = mean_rural), colour = "#4dac26", size = 3) +
+  scale_x_continuous(labels = label_number(suffix = "%"),
+                     limits = c(0, 100)) +
+  labs(title    = "Urban-rural gap in non-agricultural employment share by state — 2023-24",
+       subtitle = "Purple = urban mean, Green = rural mean. Top and bottom 8 states by gap shown.",
+       caption  = "States with ≥3 paired districts. Source: PLFS unit-level microdata, MOSPI.",
+       x = "Non-agricultural employment share (%)",
+       y = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(panel.grid.minor = element_blank(),
+        plot.title       = element_text(face = "bold"))
+```
+
+The named state plot reveals a clear geographic pattern. The largest urban-rural gaps — Meghalaya, Himachal Pradesh, Chhattisgarh, Assam, Maharashtra — are concentrated in north-eastern, Himalayan, central, and western states. The smallest gaps — Delhi, Kerala, Jammu and Kashmir, Manipur — are in the capital territory, southern India, and the far north-west. Tamil Nadu, Punjab, and Haryana sit in the middle range with gaps of 27-29 points.
+
+The Delhi finding is expected: as a near-fully urban territory, the rural-urban distinction is economically and geographically artificial, producing similar employment coding in both files. The Kerala finding is consistent with its well-documented development trajectory — high literacy, strong public employment, and relatively balanced rural and urban economic structure. The large gap for Assam (46.7 points, rural 91%, urban 44.3%) may partly reflect the state's large tea estate economy, where tea garden workers could be coded inconsistently across the rural and urban filing structure.
+
+The southern states' smaller gaps — Tamil Nadu (27.9pp), Karnataka (not shown due to insufficient paired districts in top/bottom 8), Kerala (8.2pp) — are consistent with more advanced urbanisation and structural transformation in peninsular India relative to central and north-eastern states.
+
+## Summary
+
+This notebook has examined urban-rural structural differences across Indian districts using paired district data from the PLFS panel. Three findings emerge.
+
+Urban and rural employment distributions are almost entirely non-overlapping. The rural non-agricultural share distribution peaks near 90% while the urban distribution peaks near 25-45%, with minimal overlap. Both the level difference and the within-district correlation structure confirm that urban and rural labour markets respond to structurally different forces despite sharing geographic boundaries.
+
+Urban and rural non-agricultural employment shares within districts are only weakly correlated (r = 0.255). Geographic commonalities create some co-movement but districts with high rural non-agricultural shares do not reliably have high urban non-agricultural shares. The urban-rural labour market within a district is not integrated in the sense that would be implied by a strong positive correlation.
+
+Geographic heterogeneity in the urban-rural gap is large and systematic. The gap ranges from 4 percentage points in Delhi to 62 points in Meghalaya, with clear regional patterns — southern and north-western states show smaller gaps, while north-eastern, Himalayan, and central Indian states show larger gaps. This geographic patterning is consistent with the broader regional development literature on India and represents the most robust finding of this notebook.
+
+**Proceed to `06_regression.Rmd`.**
+
+
+
+
+
+
+
+
+
+
+
+
+
+
