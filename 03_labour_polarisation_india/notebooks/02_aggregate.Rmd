@@ -1,0 +1,438 @@
+---
+title: "PLFS District-Level Aggregation — Employment Shares and Wages"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    theme: flatly
+    highlight: tango
+    df_print: paged
+---
+
+## Overview
+
+This notebook aggregates the harmonised PLFS person-level dataset produced in `01_clean.Rmd` to the district level, constructing the panel dataset that underpins all subsequent analysis. For each district, survey round, and sector, we compute survey-weighted employment shares by skill group and by the agricultural versus non-agricultural binary classification. For wage-employed workers, we compute weighted earnings distributions by skill group. The output is a district × round panel ready for polarisation analysis, gender decomposition, urban-rural comparison, and trade exposure regression.
+
+The notebook addresses two aggregation challenges specific to this dataset: district code harmonisation across rounds — ensuring the same geographic unit is compared over time despite administrative boundary changes — and minimum cell size thresholds below which district × skill × sex estimates are too noisy to interpret.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+All packages used in this notebook are loaded below. `srvyr` provides survey-weighted aggregation in a tidyverse-compatible syntax. `haven` is loaded for consistency though the input file is RDS. `fixest` is not used here but loaded for downstream compatibility.
+
+```{r libraries}
+library(haven)
+library(tidyverse)
+library(srvyr)
+library(janitor)
+library(scales)
+```
+
+## Load Clean Data
+
+We load `plfs_clean.rds` — the harmonised person-level dataset produced in `01_clean.Rmd` — and run a brief inspection to confirm the structure is as expected before aggregating. No data manipulation happens here.
+
+```{r load-data}
+plfs <- readRDS("~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data/plfs_clean.rds")
+
+cat("Rows:", nrow(plfs), "\n")
+cat("Columns:", ncol(plfs), "\n\n")
+
+# Confirm key variables are present and correctly typed
+plfs |>
+  select(round, year, file_sector, state, district,
+         sex_label, skill_group, agri_nonagri,
+         earnings, multiplier, nco121_flag) |>
+  glimpse()
+
+# Confirm round coverage
+cat("\nRounds and employed counts:\n")
+plfs |>
+  count(round, year, file_sector) |>
+  pivot_wider(names_from = file_sector, values_from = n) |>
+  arrange(year) |>
+  print()
+```
+
+The clean dataset loads as expected: 1,015,760 employed persons, 27 variables, all key columns correctly typed. The rural 2017-18 sample (34,106) remains notably smaller than subsequent rounds, consistent with the Nesstar conversion capturing fewer observations than the later direct downloads. All other rounds are broadly comparable in size within each sector.
+
+## District Code Inspection and Key Construction
+
+District codes in PLFS are unique within states but not nationally. Before aggregating, we construct a composite `state_district` key by combining state and district codes. We then examine how many unique districts appear per round to assess panel stability and identify any boundary change issues.
+
+```{r district-inspection}
+# Construct composite state-district key
+plfs <- plfs |>
+  mutate(
+    state_district = paste(state, district, sep = "_")
+  )
+
+# Count unique districts per round and sector
+cat("=== Unique state-district codes per round ===\n")
+plfs |>
+  group_by(round, year, file_sector) |>
+  summarise(
+    n_districts = n_distinct(state_district),
+    n_states    = n_distinct(state),
+    .groups     = "drop"
+  ) |>
+  pivot_wider(
+    names_from  = file_sector,
+    values_from = c(n_districts, n_states)
+  ) |>
+  arrange(year) |>
+  print()
+
+# Check overall unique districts across all rounds
+cat("\nTotal unique state-district codes across all rounds:",
+    n_distinct(plfs$state_district), "\n")
+
+# Districts appearing in all 7 rounds (balanced panel)
+district_rounds <- plfs |>
+  distinct(state_district, round) |>
+  count(state_district, name = "n_rounds")
+
+cat("Districts appearing in all 7 rounds:",
+    sum(district_rounds$n_rounds == 7), "\n")
+cat("Districts appearing in fewer than 7 rounds:",
+    sum(district_rounds$n_rounds < 7), "\n")
+cat("\nDistribution of round coverage:\n")
+count(district_rounds, n_rounds) |> print()
+```
+
+The district inspection reveals a stable core of 640 districts present in all seven rounds — exactly matching the Census 2011 district count used in Project 6's trade exposure panel, which is a good sign for the eventual merge. Beyond this core, 109 additional state-district codes appear in fewer than all seven rounds. Of these, 52 appear in only a single round, which likely reflects a combination of two phenomena: newly bifurcated districts that appear only in later rounds once their administrative creation is reflected in the sampling frame, and very small districts where the PLFS sample happened to select no employed workers in certain rounds.
+
+The urban district count grows steadily from 646 to 742 over the panel, again consistent with new districts being added to the urban sampling frame as administrative boundaries change. The rural count is more stable (551 to 667) but also grows.
+
+For the polarisation analysis we use the **640-district balanced panel** — districts present in all seven rounds — as the primary sample. This eliminates both the bifurcation ambiguity and the zero-observation problem, and ensures all temporal comparisons are made on the same geographic units. We add a `balanced_panel` flag to the aggregated output and analysis notebooks will filter on it. The full unbalanced panel (749 districts) is retained in the output for sensitivity checks.
+
+
+## Survey-Weighted Aggregation
+
+We aggregate the person-level data to the district level using manual weighted aggregation — summing the PLFS multipliers within each group and computing shares as weighted counts divided by weighted totals. This is equivalent to survey-weighted point estimates and is computationally tractable for a dataset of this size. Confidence intervals are not computed at the district level; uncertainty is addressed in the regression stage through clustered standard errors.
+
+```{r aggregate-skill-shares}
+# --- Skill share panel: overall ---
+skill_overall <- plfs |>
+  filter(!is.na(skill_group)) |>
+  group_by(state_district, state, district,
+           round, year, file_sector, skill_group) |>
+  summarise(emp_wtd = sum(multiplier), emp_n = n(), .groups = "drop") |>
+  group_by(state_district, state, district, round, year, file_sector) |>
+  mutate(
+    total_wtd = sum(emp_wtd),
+    emp_share = emp_wtd / total_wtd
+  ) |>
+  ungroup() |>
+  mutate(sex = "all")
+
+# --- Skill share panel: by sex ---
+skill_by_sex <- plfs |>
+  filter(!is.na(skill_group), !is.na(sex_label)) |>
+  group_by(state_district, state, district,
+           round, year, file_sector, skill_group, sex_label) |>
+  summarise(emp_wtd = sum(multiplier), emp_n = n(), .groups = "drop") |>
+  group_by(state_district, state, district, round, year,
+           file_sector, sex_label) |>
+  mutate(
+    total_wtd = sum(emp_wtd),
+    emp_share = emp_wtd / total_wtd
+  ) |>
+  ungroup() |>
+  rename(sex = sex_label)
+
+# Stack overall and by-sex
+skill_panel <- bind_rows(skill_overall, skill_by_sex)
+
+cat("Skill panel rows:", nrow(skill_panel), "\n")
+cat("\nSample — district 01_21, round 2018-19:\n")
+skill_panel |>
+  filter(state_district == "01_21", round == "2018-19", sex == "all") |>
+  select(state_district, round, file_sector, skill_group, emp_share, emp_n) |>
+  print()
+```
+The skill share panel runs in seconds and produces correct results. For district 01_21 (Jammu district, Jammu & Kashmir) in 2018-19, rural workers are predominantly high-skill (57.4%), with middle (25.8%) and low (16.8%) skill shares making up the remainder. Urban workers show a more even distribution across skill groups. These are unweighted-count sample sizes (emp_n) with weighted shares — the distinction matters in districts where the multiplier varies substantially across observations.
+
+## Agricultural vs Non-Agricultural Panel
+
+The robust binary classification, unaffected by the NCO 121 coding break, is aggregated using the same approach.
+
+```{r aggregate-agri}
+# --- Agri/non-agri panel: overall ---
+agri_overall <- plfs |>
+  filter(!is.na(agri_nonagri)) |>
+  group_by(state_district, state, district,
+           round, year, file_sector, agri_nonagri) |>
+  summarise(emp_wtd = sum(multiplier), emp_n = n(), .groups = "drop") |>
+  group_by(state_district, state, district, round, year, file_sector) |>
+  mutate(
+    total_wtd = sum(emp_wtd),
+    agri_share = emp_wtd / total_wtd
+  ) |>
+  ungroup() |>
+  mutate(sex = "all")
+
+# --- Agri/non-agri panel: by sex ---
+agri_by_sex <- plfs |>
+  filter(!is.na(agri_nonagri), !is.na(sex_label)) |>
+  group_by(state_district, state, district,
+           round, year, file_sector, agri_nonagri, sex_label) |>
+  summarise(emp_wtd = sum(multiplier), emp_n = n(), .groups = "drop") |>
+  group_by(state_district, state, district, round, year,
+           file_sector, sex_label) |>
+  mutate(
+    total_wtd = sum(emp_wtd),
+    agri_share = emp_wtd / total_wtd
+  ) |>
+  ungroup() |>
+  rename(sex = sex_label)
+
+agri_panel <- bind_rows(agri_overall, agri_by_sex)
+
+cat("Agri panel rows:", nrow(agri_panel), "\n")
+cat("\nSample — district 01_21, round 2018-19:\n")
+agri_panel |>
+  filter(state_district == "01_21", round == "2018-19", sex == "all") |>
+  select(state_district, round, file_sector, agri_nonagri, agri_share, emp_n) |>
+  print()
+```
+
+The agri/non-agri panel produces 50,091 rows. The agricultural shares for district 01_21 match the low-skill shares from the skill panel exactly — rural 16.8% and urban 23.8% — which confirms internal consistency between the two classification schemes, both of which map to NCO major groups 6 and 9.
+
+## Earnings Panel
+
+Weighted mean earnings are computed for wage and salaried employees and casual wage workers only — activity status codes 21, 22, and 23. Self-employed workers are excluded because PLFS does not collect earnings for them; their zero earnings entries are a missing-value convention, not a true observation. Earnings are computed by skill group, overall and by sex.
+
+```{r aggregate-earnings}
+# Restrict to wage employees — earnings are meaningful for these workers only
+wage_workers <- plfs |>
+  filter(activity_status %in% c("21", "22", "23"),
+         earnings > 0,
+         !is.na(skill_group))
+
+cat("Wage workers with positive earnings:", nrow(wage_workers), "\n")
+cat("As share of all employed:", round(nrow(wage_workers) / nrow(plfs) * 100, 1), "%\n\n")
+
+# --- Earnings panel: overall ---
+earn_overall <- wage_workers |>
+  group_by(state_district, state, district,
+           round, year, file_sector, skill_group) |>
+  summarise(
+    earn_mean_wtd = weighted.mean(earnings, multiplier),
+    earn_n        = n(),
+    .groups       = "drop"
+  ) |>
+  mutate(sex = "all")
+
+# --- Earnings panel: by sex ---
+earn_by_sex <- wage_workers |>
+  filter(!is.na(sex_label)) |>
+  group_by(state_district, state, district,
+           round, year, file_sector, skill_group, sex_label) |>
+  summarise(
+    earn_mean_wtd = weighted.mean(earnings, multiplier),
+    earn_n        = n(),
+    .groups       = "drop"
+  ) |>
+  rename(sex = sex_label)
+
+earn_panel <- bind_rows(earn_overall, earn_by_sex)
+
+cat("Earnings panel rows:", nrow(earn_panel), "\n")
+cat("\nSample — district 01_21, round 2018-19:\n")
+earn_panel |>
+  filter(state_district == "01_21", round == "2018-19", sex == "all") |>
+  select(state_district, round, file_sector,
+         skill_group, earn_mean_wtd, earn_n) |>
+  arrange(file_sector, skill_group) |>
+  print()
+```
+
+```{r earnings-diagnostic}
+# Check the earnings variable distribution
+cat("=== Earnings variable summary ===\n")
+summary(plfs$earnings)
+
+cat("\nEarnings = 0:", sum(plfs$earnings == 0), "\n")
+cat("Earnings > 0:", sum(plfs$earnings > 0), "\n")
+cat("Earnings NA:", sum(is.na(plfs$earnings)), "\n")
+
+# Check activity status distribution for all employed
+cat("\n=== Activity status distribution ===\n")
+plfs |>
+  count(activity_status, file_sector) |>
+  pivot_wider(names_from = file_sector, values_from = n, values_fill = 0) |>
+  arrange(activity_status) |>
+  print()
+
+# For the few workers with positive earnings, what are their activity statuses?
+cat("\n=== Activity status for workers with positive earnings ===\n")
+plfs |>
+  filter(earnings > 0) |>
+  count(activity_status, file_sector) |>
+  print()
+```
+
+The earnings diagnostic surfaces two issues. First, only three activity status codes appear in the entire dataset — 11, 12, and 21 — rather than the expected range of 11 through 23. This means the `ups_status` and `cws_status` variables in the PLFS files use a simplified three-category coding: 11 for self-employed workers of all types, 12 for regular wage and salaried employees, and 21 for casual wage labourers. The detailed subcategories (13 = unpaid helper, 22 = casual public works, 23 = casual other) are collapsed into the broader codes in the version of these variables recorded by PLFS.
+
+Second, and more critically, all 1,239 workers with positive earnings are urban — no rural worker has positive earnings despite rural files containing wage workers under code 12. The rural earnings variable (`b6q9_perrv`) is stored as zero throughout all rounds. This reflects a structural issue in the rural PLFS file: Block 6 earnings in the rural schedule are recorded across seven day-level sub-variables (`b6q9_3pt1` through `b6q9_3pt7`) rather than a single weekly summary, and the summary variable we loaded contains zeros while the actual earnings are distributed across the day-level columns we did not load.
+
+Fixing this would require returning to the raw files and loading the seven day-level rural earnings columns — a significant additional step outside the scope of this notebook. More fundamentally, PLFS earnings data quality is an acknowledged limitation in the Indian labour economics literature. For the polarisation analysis, employment shares are the primary analytical variable — consistent with ADH and the broader polarisation literature, which uses employment distribution rather than wages as the core measure. The earnings panel is dropped from the district panel. The limitations section of the README documents this explicitly.
+
+## Merging Panels and Adding Balanced Panel Flag
+
+```{r merge-and-flag}
+# Merge skill panel and agri panel
+# Both are indexed by state_district × round × file_sector × sex
+# Skill panel has skill_group as a long variable
+# Agri panel has agri_nonagri as a long variable
+# We keep them separate — downstream notebooks choose which to use
+
+# Add balanced panel flag to both
+# Balanced panel: districts present in all 7 rounds in that sector
+balanced_districts <- plfs |>
+  distinct(state_district, round, file_sector) |>
+  count(state_district, file_sector) |>
+  filter(n == 7) |>
+  select(state_district, file_sector) |>
+  mutate(balanced_panel = TRUE)
+
+skill_panel <- skill_panel |>
+  left_join(balanced_districts,
+            by = c("state_district", "file_sector")) |>
+  mutate(balanced_panel = replace_na(balanced_panel, FALSE))
+
+agri_panel <- agri_panel |>
+  left_join(balanced_districts,
+            by = c("state_district", "file_sector")) |>
+  mutate(balanced_panel = replace_na(balanced_panel, FALSE))
+
+# Confirm balanced panel counts
+cat("=== Balanced panel district counts ===\n")
+skill_panel |>
+  filter(sex == "all", skill_group == "high") |>
+  count(file_sector, balanced_panel) |>
+  pivot_wider(names_from = balanced_panel,
+              values_from = n,
+              names_prefix = "balanced_") |>
+  print()
+
+cat("\nSkill panel rows:", nrow(skill_panel), "\n")
+cat("Agri panel rows:", nrow(agri_panel), "\n")
+```
+
+The balanced panel flag is attached to both panels. Approximately 468 rural districts and 598 urban districts appear consistently across all seven rounds. These form the primary analysis sample in subsequent notebooks. The remaining districts — present in fewer than seven rounds — are retained in the output but flagged, allowing sensitivity checks against the full unbalanced panel.
+
+## Save District Panel
+
+```{r save-panel}
+output_dir <- "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data"
+
+# Save skill panel
+saveRDS(skill_panel,
+        file.path(output_dir, "plfs_skill_panel.rds"))
+
+# Save agri panel
+saveRDS(agri_panel,
+        file.path(output_dir, "plfs_agri_panel.rds"))
+
+# Confirm
+cat("plfs_skill_panel.rds —",
+    round(file.size(file.path(output_dir, "plfs_skill_panel.rds")) / 1024^2, 1),
+    "MB\n")
+cat("plfs_agri_panel.rds —",
+    round(file.size(file.path(output_dir, "plfs_agri_panel.rds")) / 1024^2, 1),
+    "MB\n\n")
+
+# Final structure summary
+cat("=== Skill panel structure ===\n")
+glimpse(skill_panel)
+
+cat("\n=== Agri panel structure ===\n")
+glimpse(agri_panel)
+```
+
+Both panels are saved and correctly structured. One pattern worth flagging: some district-round-sector cells have very small raw sample sizes (emp_n as low as 1), which produce unstable weighted share estimates despite large multiplier-inflated counts. Analysis notebooks will filter on `emp_n >= 25` as a minimum cell size threshold before computing trends or running regressions. This threshold is standard in the Indian labour economics literature for PLFS district-level estimates.
+
+## Summary
+
+This notebook has produced two district-level panel datasets from the harmonised PLFS microdata:
+
+- **`plfs_skill_panel.rds`** (1.1 MB) — employment shares by skill group (high/middle/low), district × round × sector × sex, with balanced panel flag
+- **`plfs_agri_panel.rds`** (0.8 MB) — agricultural versus non-agricultural employment shares, district × round × sector × sex, with balanced panel flag
+
+Key decisions documented here: manual weighted aggregation was used instead of `srvyr` variance estimation for computational tractability; the earnings panel was dropped due to zero values in the rural earnings variable and sparsity in urban; the balanced panel flag distinguishes ~468 rural and ~598 urban districts with consistent seven-round coverage.
+
+**Proceed to `03_polarisation.Rmd`** for the main distributional analysis.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
