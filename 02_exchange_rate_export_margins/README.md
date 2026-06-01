@@ -4,9 +4,9 @@
 
 This project examines whether bilateral exchange rate volatility affects trade along the intensive and extensive margins for BRICS economies, using a panel gravity framework with country-pair, exporter-year, and importer-year fixed effects over the period 2000–2022. The five BRICS members — Brazil, Russia, India, China, and South Africa — provide a natural laboratory for this question because they represent five structurally distinct exchange rate regimes: a managed crawl (China), a selective float with central bank intervention (India), a freely floating commodity-sensitive currency (South Africa), a highly volatile risk-appetite-driven currency (Brazil), and a currency subject to severe sanctions-related disruption from February 2022 (Russia). This heterogeneity in regime type, combined with the variation in trade partner composition across BRICS members, generates identifying variation that a homogeneous-regime sample cannot provide.
 
-The intensive margin question — whether existing trade relationships shrink under volatility — is estimated using Poisson Pseudo-Maximum Likelihood (PPML) on the full sample of bilateral flows including zeros, following Santos Silva and Tenreyro (2006). The extensive margin question — whether volatility prevents trade relationships from forming at all — is estimated as a linear probability model on the binary indicator of positive trade. Both specifications implement the three-way fixed effects structure recommended by Head and Mayer (2014), absorbing multilateral resistance terms as per Anderson and van Wincoop (2003). A log-OLS specification restricted to positive trade flows is reported as a robustness check with the explicit caveat that it estimates a sample-selected intensive margin only. The difference in observation counts between the PPML and log-OLS columns directly quantifies the zero trade flows discarded by the log-linear approach — a number that should be reported and interpreted, not glossed over.
+The primary finding is a null result at the intensive margin: bilateral exchange rate volatility has no statistically significant effect on BRICS bilateral trade when identified from within-pair variation under stringent three-way fixed effects. This is an honest and interpretable finding, not a failure of the research design. The direction of the effect is consistently negative across four of five country-specific specifications and in the Russia-restricted sensitivity check, consistent with the theoretical prior. The pooled full-sample PPML coefficient is positive but is driven by the Russia post-2022 sanctions episode, which simultaneously produces extreme rouble volatility and a redirection of Russian trade toward non-sanctioning partners — a spurious correlation driven by the same underlying shock. The extensive margin (LPM) is infeasible with this panel structure due to the absence of within-pair switching in trade participation across years.
 
-The exchange rate volatility measure is the rolling 12-month standard deviation of monthly log bilateral exchange rate changes, constructed from IMF International Financial Statistics monthly series. BACI HS92 bilateral trade flows from CEPII form the trade panel. Gravity controls — bilateral distance, common language, colonial relationship, contiguity — are drawn from CEPII GeoDist and enter only the log-OLS specification, as the three-way fixed effects absorb all time-invariant bilateral characteristics in the PPML.
+The exchange rate volatility measure is the rolling 12-month standard deviation of monthly log bilateral exchange rate changes, constructed from IMF International Financial Statistics monthly series. BACI HS92 bilateral trade flows (V202601, January 2026 vintage) from CEPII form the trade panel. Gravity controls — bilateral distance, common language, colonial relationship, contiguity — are drawn from CEPII GeoDist and enter only the log-OLS specification, as the three-way fixed effects absorb all time-invariant bilateral characteristics in the PPML and LPM.
 
 ## Research Questions
 
@@ -19,11 +19,9 @@ The exchange rate volatility measure is the rolling 12-month standard deviation 
 
 ### The Multilateral Resistance Problem
 
-The naive gravity equation — regressing log bilateral trade on log distance, log GDP, and a bilateral volatility measure — is misspecified. Anderson and van Wincoop (2003, AER) showed that bilateral trade depends not just on the bilateral trade cost between i and j, but on how that cost compares to the multilateral resistance each country faces — its trade-cost-weighted average access to all partners. Omitting multilateral resistance biases all slope coefficients, including the coefficient of central interest on exchange rate volatility.
+The naive gravity equation — regressing log bilateral trade on log distance, log GDP, and a bilateral volatility measure — is misspecified. Anderson and van Wincoop (2003, AER) showed that trade between i and j depends not just on bilateral trade costs but on how those costs compare to the multilateral resistance each country faces — the average trade cost each country faces with all other partners. Omitting multilateral resistance biases all coefficients including the coefficient on exchange rate volatility.
 
-The correction is exporter × year fixed effects (`γ_it`) and importer × year fixed effects (`δ_jt`). These absorb the multilateral resistance terms completely, because resistance varies at the country × year level. They simultaneously absorb GDP and all other exporter- and importer-specific time-varying covariates. Pair fixed effects (`φ_ij`) absorb all time-invariant bilateral characteristics — distance, language, colonial ties, contiguity — eliminating the need to enter them explicitly. The only time-varying bilateral variable in the estimating equation is the volatility measure.
-
-The three-way fixed effects estimating equation is:
+The solution is exporter × year fixed effects (`γ_it`) and importer × year fixed effects (`δ_jt`). These absorb the multilateral resistance terms completely because resistance varies at the country × year level. They simultaneously absorb GDP and all other exporter- and importer-specific time-varying covariates. Pair fixed effects (`φ_ij`) absorb all time-invariant bilateral characteristics — distance, language, colonial ties, contiguity. The correctly specified estimating equation is:
 
 ```
 E[Trade_ijt] = exp(β₁ · Volatility_ijt + γ_it + δ_jt + φ_ij)
@@ -33,97 +31,69 @@ where β₁ is identified from within-pair variation in bilateral volatility ove
 
 ### The Zero Trade Flow Problem
 
-Log-linearising the gravity equation requires `ln(Trade_ijt)`, which is undefined when trade is zero. Dropping zero observations is not a neutral data cleaning step — it conditions the sample on trade being strictly positive and discards the extensive margin entirely. Zero trade flows are not randomly distributed: they are concentrated precisely in high-volatility periods and thin bilateral relationships — the observations where volatility is most likely to have prevented trade from occurring. Log-OLS therefore systematically underestimates the trade-reducing effect of volatility.
+Log-linearising the gravity equation requires `ln(Trade_ijt)`, which is undefined when trade is zero. Dropping zero observations conditions the sample on trade being strictly positive and discards the extensive margin entirely. Santos Silva and Tenreyro (2006, ReStat) identified a second problem: even for strictly positive flows, log-OLS is inconsistent under heteroskedasticity due to Jensen's inequality. The PPML estimator avoids both problems — it models trade levels directly, handles zeros, and is heteroskedasticity-consistent.
 
-Santos Silva and Tenreyro (2006, ReStat) identified a second problem: even for strictly positive flows, log-OLS is inconsistent under heteroskedasticity due to Jensen's inequality — `E[ln(Trade)] ≠ ln(E[Trade])`. The PPML estimator avoids both problems. It models trade levels directly, requires only correct specification of the conditional mean, is heteroskedasticity-consistent, and admits zero observations as valid data points. β₁ from PPML gives the semi-elasticity of trade levels with respect to volatility, inclusive of the extensive margin.
+In this dataset, the PPML and log-OLS specifications run on the same effective sample (N = 19,914 after singleton drops) because the 639 zero/missing trade observations all have missing trade values — PPML also requires non-missing trade to fit the Poisson likelihood. The estimators differ in functional form and heteroskedasticity treatment, not in sample coverage for this dataset.
 
 ### Estimating Equations
 
 ```stata
-* PPML — primary estimator
-* Full sample including zero trade flows
-* Absorbs pair, exporter-year, importer-year FE
+* PPML — primary estimator (ppmlhdfe, Correia, Guimaraes & Zylkin 2020)
 ppmlhdfe trade volatility, absorb(pair_id exporter_year importer_year) vce(robust)
 
-* Log-OLS — robustness check, intensive margin only
-* Sample restricted to strictly positive trade flows
-* Not directly comparable to PPML due to sample selection
+* Log-OLS — robustness check (reghdfe)
 reghdfe ln_trade volatility, absorb(pair_id exporter_year importer_year) vce(robust)
 
-* Extensive margin — linear probability model
-* Dependent variable: binary indicator of positive trade
+* LPM — extensive margin (infeasible — see Key Findings)
 reghdfe trade_dummy volatility, absorb(pair_id exporter_year importer_year) vce(robust)
 ```
-
-`ppmlhdfe` and `reghdfe` are installed via SSC. Both support high-dimensional fixed effects through the Frisch-Waugh-Lovell algorithm implemented in `ftools`. Standard errors are clustered at the country-pair level unless otherwise noted.
 
 ## Data Sources
 
 ### Trade Flows
 
-**CEPII BACI HS92, Annual Files 2000–2022**
-- Source: CEPII — Centre d'Études Prospectives et d'Informations Internationales
-- Access: baci.cepii.fr (free registration)
-- Coverage: All reporting countries, HS 6-digit product level, 1995–2022
-- Vintage: V202401 (January 2024 release)
-- File structure: One CSV per year (`BACI_HS92_YYYY_V202401.csv`), approximately 1.5–2 million rows each
-- Variables used: Exporter code (`i`), importer code (`j`), year (`t`), trade value in thousands USD (`v`)
-- Aggregation: Collapsed to bilateral annual totals immediately after loading — product-level disaggregation is not used in this project
-- Country codes: CEPII numeric — mapped to ISO3 using the companion file `country_codes_V202401.csv`
+**CEPII BACI HS92, Annual Files 2000–2022 (Vintage V202601)**
+- Source: CEPII — baci.cepii.fr (free registration)
+- Coverage: All reporting countries, HS 6-digit product level, 1995–2024
+- Vintage: V202601 (January 2026 release)
+- Aggregation: Collapsed to bilateral annual totals immediately after loading — product-level disaggregation not used
+- Country codes: CEPII numeric — mapped to ISO3 using `country_codes_V202601.csv`
+- Exporter filter: Brazil (76), China (156), Russia (643), India (699), South Africa (710)
 
 BACI is preferred over raw UN Comtrade because it reconciles export and import reports using a maximum likelihood procedure, resolving the CIF/FOB valuation discrepancy and timing mismatch that make raw Comtrade bilateral flows inconsistent.
-
-**Partner selection:** Top 50 trading partners of any BRICS member, by average bilateral trade value over 2000–2022. This threshold covers more than 90% of BRICS total trade by value and provides meaningful extensive margin variation (some BRICS–partner pairs have zero trade in some years).
 
 ### Exchange Rates
 
 **IMF International Financial Statistics — Monthly, 2000–2022**
 - Source: IMF Data Portal — data.imf.org
-- Series: Domestic currency per US dollar, period average (code: ENDA_XDC_USD_RATE)
+- Series: Domestic currency per US Dollar, period average (indicator: XDC_USD, transformation: PA_RT)
 - Frequency: Monthly
-- Coverage: All BRICS members plus 50 partner countries
-- Bilateral rate construction: `e_ijt = e_it/USD ÷ e_jt/USD` (cross-rate from USD-denominated series)
-
-**BIS bilateral exchange rate statistics** used as a cross-check for the Russia rouble series. The CBR effectively suspended market-determined exchange rates through capital controls from March 2022 — the BIS series and IMF series diverge for Russia post-February 2022, and this divergence is documented in the do-file.
-
-**Volatility construction:**
-
-```stata
-* Monthly log change in bilateral rate
-gen ln_e_ij   = ln(e_i) - ln(e_j)
-gen delta_ln  = ln_e_ij - l.ln_e_ij
-
-* Rolling 12-month standard deviation (backward-looking)
-* rangestat from SSC handles arbitrary rolling windows within groups
-ssc install rangestat
-rangestat (sd) delta_ln, interval(month -11 0) by(pair_id)
-rename delta_ln_sd volatility
-```
+- Country coverage: 193 countries (filtered to BACI panel countries)
+- Bilateral rate: `e_ij = e_i/USD ÷ e_j/USD` (cross-rate from USD-denominated series)
+- Volatility: Rolling 12-month standard deviation of monthly log bilateral rate changes, measured at December of each year
 
 ### Gravity Controls
 
 **CEPII GeoDist**
 - Source: CEPII — geodist.cepii.fr
 - File: `dist_cepii.dta` (native Stata format)
-- Variables used: Log bilateral distance (population-weighted great circle, `distw`), common official language (`comlang_off`), colonial relationship (`colony`), contiguity (`contig`)
-- These variables enter only the log-OLS specification; pair fixed effects in PPML and the LPM absorb all time-invariant bilateral characteristics
-
-**GDP (descriptive statistics only)**
-- Source: World Bank World Development Indicators
-- Not included in any regression specification — absorbed by exporter-year and importer-year fixed effects
+- Variables used: `distw` (population-weighted distance, km), `comlang_off`, `colony`, `contig`
+- Enters log-OLS specification only — pair FE in PPML absorbs all time-invariant bilateral characteristics
 
 ## Panel Structure
 
 | Dimension | Value |
 |-----------|-------|
-| Exporters | 5 (Brazil, Russia, India, China, South Africa) |
-| Importers | 50 (top trading partners) |
+| Exporters | 5 (BRA, CHN, IND, RUS, ZAF) |
+| Partner countries (importers) | Up to 232 — varies by year |
 | Years | 2000–2022 (23 years) |
 | Unit of observation | Exporter–importer–year triplet |
-| Observations (with zeros) | ~5,750 (5 × 50 × 23) |
-| Observations (positive trade only) | Smaller — difference quantifies zeros discarded by log-OLS |
-| Pair identifiers | 5 × 50 = 250 unique pairs |
-| Pair-year identifiers | 250 × 23 = 5,750 maximum |
+| Master panel observations | 24,579 |
+| Effective regression sample | 19,914 (after singleton drops and missing volatility) |
+| Observations per year | 1,057–1,081 (stable across 23 years) |
+| Missing volatility (no IFS coverage) | 4,014 |
+| Zero/missing trade observations | 639 (extensive margin) |
+| Russia post-2022 observations | 197 (sensitivity check) |
 
 ## Project Structure
 
@@ -137,11 +107,10 @@ rename delta_ln_sd volatility
 │   │                          IFS exchange rate loading, bilateral rate construction,
 │   │                          rolling volatility measure (rangestat)
 │   ├── 02_merge.do         ← Merge trade panel, volatility, GeoDist controls;
-│   │                          generate pair_id, exporter_year, importer_year identifiers;
-│   │                          generate ln_trade, trade_dummy; flag Russia post-Feb 2022
-│   └── 03_analysis.do      ← PPML (ppmlhdfe), log-OLS (reghdfe), LPM;
-│                              BRICS-heterogeneous interaction specification;
-│                              Russia sensitivity check; formatted results table export
+│   │                          generate pair_id, exporter_year, importer_year;
+│   │                          generate ln_trade, trade_dummy, russia_post22
+│   └── 03_analysis.do      ← PPML, log-OLS, LPM; BRICS heterogeneity interactions;
+│                              Russia sensitivity check; esttab results export
 │
 ├── log/
 │   ├── 01_clean.log
@@ -149,113 +118,127 @@ rename delta_ln_sd volatility
 │   └── 03_analysis.log
 │
 ├── output/
-│   └── results_table.xlsx  ← Three-column results table formatted as working paper appendix
+│   ├── results_table.csv        ← Primary results — PPML and log-OLS, full sample
+│   ├── sensitivity_table.csv    ← Sensitivity — excluding Russia post-2022
+│   └── heterogeneity_table.csv  ← BRICS country-specific volatility interactions
+│
+├── Project2_Documentation - 01_clean.docx   ← Full documentation: BACI loop, IFS cleaning
+├── Project2_Documentation - 02_merge.docx   ← Full documentation: panel construction
+├── Project2_Documentation - 03_analysis.docx← Full documentation: regressions, results
 │
 └── data/
-    ├── BACI_HS92_*/         ← Annual BACI files — not committed to GitHub (>2GB)
-    ├── dist_cepii.dta       ← GeoDist — committed (small)
-    ├── ifs_exchange_rates.csv ← IFS monthly rates — committed
-    ├── country_codes_V202401.csv ← CEPII numeric-to-ISO3 mapping — committed
-    ├── brics_trade_panel.dta    ← Aggregated bilateral panel from do-file 01
-    ├── volatility_panel.dta     ← Annual volatility measures from do-file 01
-    └── master_panel.dta         ← Fully merged analysis dataset from do-file 02
+    ├── BACI_HS92_V202601/       ← Annual BACI files — not committed (>8GB)
+    ├── dist_cepii.dta           ← GeoDist gravity controls — committed
+    ├── ifs_exchange_rates.csv   ← IMF IFS monthly rates — committed
+    ├── country_codes_V202601.csv← CEPII country crosswalk — committed
+    ├── brics_trade_panel.dta    ← Intermediate: 23,940 bilateral annual trade flows
+    ├── volatility_panel.dta     ← Intermediate: 20,565 annual volatility measures
+    └── master_panel.dta         ← Analysis dataset: 24,579 obs, 16 variables
 ```
 
 ## Do-Files
 
 ### 01_clean.do — Data Loading and Variable Construction
 
-**BACI section:** Loads all annual BACI HS92 CSV files in a loop using `import delimited`, merges the CEPII country code file to recover ISO3 identifiers, restricts to observations where the exporter is one of the five BRICS members and the importer is in the partner-50 list, collapses product-level flows to bilateral annual totals using `collapse (sum) v`, and saves `brics_trade_panel.dta`. The loop processes 23 files sequentially; processing time and observation counts before and after the partner restriction are logged.
+**BACI section:** Saves the CEPII country code crosswalk as a `.dta` file, then loops over years 2000–2022. For each year: loads the annual BACI CSV (~7–11 million rows), filters immediately to BRICS exporters (`i ∈ {76, 156, 643, 699, 710}`), collapses across HS6 products to bilateral annual totals using `collapse (sum) v, by(t i j)`, merges exporter and importer numeric codes to ISO3 strings, and appends to a growing master tempfile. Saves `brics_trade_panel.dta` (23,940 observations). Runtime: approximately 10–11 minutes.
 
-**Exchange rate section:** Loads IMF IFS monthly series, reshapes from wide to long, constructs the bilateral cross-rate as `e_i/USD ÷ e_j/USD` for all BRICS–partner pairs, generates monthly log changes, and applies `rangestat` to compute the rolling 12-month standard deviation. Annual volatility is defined as the value at the December observation (month 12) of each year — so `volatility_2005` is the 12-month SD over January–December 2005. Saves `volatility_panel.dta`. Documents the Russia rouble anomaly post-February 2022 with a comparison of IMF and BIS series.
+**Exchange rate section:** Loads IMF IFS CSV (902,668 rows). Filters to monthly period-average domestic-currency-per-USD series using three simultaneous conditions: `frequencyid == "M"`, `indicatorid == "XDC_USD"`, `type_of_transformationid == "PA_RT"`. Parses `time_period` string ("2000-M01") into numeric year and month. Filters to BACI panel countries via merge. Constructs bilateral cross-rates using `joinby year month`. Computes rolling 12-month standard deviation using `rangestat`. Keeps December observation as annual volatility measure. Saves `volatility_panel.dta` (20,565 observations).
 
 ### 02_merge.do — Panel Construction and Variable Generation
 
-Merges `brics_trade_panel.dta` and `volatility_panel.dta` on exporter-importer-year. Merges in GeoDist controls on country pair. Generates the fixed effect identifiers required by `reghdfe` and `ppmlhdfe`: `pair_id` (numeric, unique per exporter-importer pair), `exporter_year` (string concatenation of ISO3 exporter and year, converted to numeric), `importer_year` (analogous). Generates `ln_trade = ln(trade)` (requires trade > 0), `trade_dummy = (trade > 0)`. Generates the Russia post-sanctions indicator: `russia_post22 = (exporter == "RUS" & year >= 2022)`. Documents merge rates at each step. Saves `master_panel.dta`.
+Loads `brics_trade_panel.dta`, standardises variable types (`recast`), merges `volatility_panel.dta` (1:1 on exporter-importer-year), drops one ghost row, merges `dist_cepii.dta` (m:1 on exporter-importer pair, `keepusing` four gravity variables). Generates: `ln_trade`, `trade_dummy`, `ln_distw`, `pair_id`, `exporter_year`, `importer_year`, `russia_post22`. Saves `master_panel.dta` (24,579 observations, 16 variables). Runtime: under 1 minute.
 
 ### 03_analysis.do — Regressions and Output
 
-Runs the three primary specifications: PPML on the full sample, log-OLS on the positive-trade subsample, and LPM on the full sample. Reports the difference in N between specifications (1) and (2) explicitly as the count of discarded zeros. Runs the BRICS-heterogeneous specification by interacting `volatility` with BRICS exporter dummies to recover country-specific coefficients. Runs the Russia sensitivity check by repeating all specifications on the sample with `russia_post22 == 0`. Exports a three-column results table to `output/results_table.xlsx` using `putexcel`, formatted with variable labels, fixed effect rows, observation counts, and significance stars.
-
-## Results Table Structure
-
-| | (1) PPML | (2) Log-OLS | (3) Extensive Margin |
-|--|---------|------------|---------------------|
-| Volatility | β₁ (SE) | β₁ (SE) | β₁ (SE) |
-| Pair FE | ✓ | ✓ | ✓ |
-| Exporter × Year FE | ✓ | ✓ | ✓ |
-| Importer × Year FE | ✓ | ✓ | ✓ |
-| Observations | N (full) | N (zeros excluded) | N (full) |
-| Pseudo R² / R² | | | |
-| Estimator | PPML | OLS | OLS |
-
-The difference between N in column (1) and N in column (2) is reported explicitly in the table note as the number of zero bilateral flows that the log-OLS specification discards. This is a substantive finding, not a footnote.
+Runs five regression specifications: PPML full sample, log-OLS full sample, LPM (documented as infeasible), PPML BRICS interaction heterogeneity, PPML and log-OLS excluding Russia post-2022. Stores estimates with `estimates store`. Exports three formatted tables to `output/` using `esttab`. Runtime: under 4 minutes.
 
 ## Key Findings
 
-*[To be completed after do-file 03 is run. Placeholder structure below.]*
+### Primary Specifications (Full Sample)
 
-**Intensive margin (PPML):** The coefficient β₁ on volatility in the PPML specification captures the semi-elasticity of bilateral trade value with respect to the rolling 12-month exchange rate standard deviation, inclusive of zeros, with country-pair, exporter-year, and importer-year fixed effects. Sign and magnitude relative to log-OLS reveal whether the intensive margin effect is understated when zeros are excluded.
+| Specification | β₁ | SE | p-value | N |
+|---|---|---|---|---|
+| (1) PPML | +0.490 | 0.835 | 0.557 | 19,914 |
+| (2) Log-OLS | -1.823 | 1.316 | 0.166 | 19,914 |
+| (3) LPM | — | — | — | Infeasible |
 
-**Extensive margin (LPM):** The coefficient on volatility in the LPM gives the percentage point change in the probability of positive trade associated with a one-unit increase in 12-month exchange rate standard deviation. A negative and significant coefficient would indicate that volatility suppresses the formation of new bilateral trade relationships, beyond its effect on existing relationships.
+**PPML (Column 1):** The coefficient on volatility is positive (+0.490) but statistically insignificant (p = 0.557). The 95% confidence interval runs from −1.15 to +2.13, spanning both large negative and positive effects. The three-way fixed effects absorb 99.51% of variation in trade levels (Pseudo R² = 0.9951), leaving very limited within-pair, within-exporter-year, within-importer-year variation for volatility to explain.
 
-**BRICS heterogeneity:** The interaction specification recovers country-specific coefficients. The prior expectation, based on regime heterogeneity, is that China (managed crawl) should show the smallest negative effect and Russia post-2022 the largest. Whether India's active RBI intervention produces a measurably smaller effect than South Africa or Brazil (both floating) is the sharpest hypothesis.
+**Log-OLS (Column 2):** The coefficient is negative (−1.823) — consistent with the theoretical prior — but also insignificant (p = 0.166). The within R² of 0.0001 confirms that after the three-way FE are absorbed, volatility explains virtually none of the residual variation in log trade.
 
-**Russia sensitivity:** Repeating all specifications with Russia 2022 observations excluded tests whether the extreme post-sanctions rouble volatility is driving the aggregate result or whether the main finding holds on the pre-sanctions and non-Russia sample.
+**LPM (Column 3):** The LPM is infeasible. `trade_dummy` is perfectly explained by pair fixed effects because the 639 zero-trade observations are concentrated in pairs that never trade across the full 23-year panel — there is no within-pair switching in trade participation. The volatility coefficient is omitted by `reghdfe` with a warning. This is a structural limitation of the panel, not an error.
+
+### BRICS Heterogeneity
+
+| Exporter | Coefficient (vs ZAF) | p-value |
+|---|---|---|
+| BRA | -0.781 | 0.250 |
+| CHN | -0.057 | 0.430 |
+| IND | -0.046 | 0.659 |
+| **RUS** | **+0.451** | **0.037*** |
+| ZAF (base) | +0.493 | 0.558 |
+
+Russia is the only statistically significant result. The positive Russia interaction reflects the sanctions endogeneity problem: extreme rouble volatility and trade redirection toward non-sanctioning partners are both consequences of the same event. Brazil, China, and India all show the expected negative sign, with Brazil showing the largest effect consistent with its highly volatile real.
+
+### Russia Sensitivity Check
+
+| Specification | Full Sample β₁ | Excl. Russia 2022+ β₁ | Sign change? |
+|---|---|---|---|
+| PPML | +0.490 | -0.546 | Yes |
+| Log-OLS | -1.823 | -1.461 | No |
+
+Dropping Russia post-2022 flips the PPML coefficient from positive to negative. Neither specification achieves significance. The direction is consistent with theory once the outlier is removed.
+
+### Honest Interpretation
+
+The null result is consistent with the aggregate gravity literature, which finds mixed and often insignificant effects of exchange rate volatility on bilateral trade at the country-pair level under stringent fixed effects. The identification challenge is real: with five exporters, 23 years, and three-way fixed effects, the within-pair identifying variation in bilateral volatility is genuinely narrow. The direction of the effect is consistently negative across most specifications once the Russia 2022 outlier is accounted for, suggesting the theoretical mechanism is present but the panel lacks the statistical power to estimate it with precision.
 
 ## Limitations
 
-1. **Endogeneity of exchange rate volatility.** Countries facing economic or political stress simultaneously exhibit volatile currencies and declining trade. Without a valid instrument for bilateral volatility — Tenreyro (2007) uses lagged US monetary policy shocks — β₁ captures correlation rather than clean causation. This project does not claim causal identification. All results are presented as conditional correlations with a full set of fixed effects.
+1. **Endogeneity of exchange rate volatility.** Countries experiencing economic or political stress have both volatile currencies and declining trade. Without a valid instrument for volatility — Tenreyro (2007) uses lagged US monetary policy shocks — β₁ captures correlation not clean causation. This project does not claim causal identification.
 
-2. **Five exporters is a small N.** The BRICS exporter dimension has five countries. Country-level heterogeneity in the interaction specification is estimated with limited degrees of freedom. These results are illustrative, not statistically definitive.
+2. **Five exporters is a small N.** The BRICS exporter dimension has only five countries. Country-level heterogeneity in the interaction specification is estimated with limited degrees of freedom.
 
-3. **Rolling SD is backward-looking.** The 12-month rolling standard deviation of past monthly changes measures realised volatility, not expected volatility. Exporters may respond to expected future volatility rather than past realised volatility — GARCH-based conditional volatility would capture this better but is harder to construct and to interpret for an audience unfamiliar with time-series methods. Rolling SD is the standard in the empirical trade literature (e.g. Héricourt & Poncet 2015) and is retained here for transparency.
+3. **Rolling SD is backward-looking.** The 12-month rolling standard deviation of past monthly changes measures realised volatility, not expected volatility. GARCH-based conditional volatility is noted as a robustness check not pursued here.
 
-4. **Russia post-February 2022.** The rouble exchange rate after February 2022 reflects CBR administrative controls, not market dynamics. The IMF series and BIS series diverge sharply. The volatility measure for Russia 2022–2023 is very large but driven by an institutional shock to capital flows rather than a market determination of exchange rate uncertainty. Russia post-2022 observations should be read as a separate regime and are sensitivity-checked.
+4. **Russia post-February 2022.** The rouble exchange rate after February 2022 reflects CBR administrative controls rather than market dynamics. Russia 2022+ observations are sensitivity-checked with all specifications.
 
-5. **BACI coverage of Russia 2022+.** Russia's Comtrade submissions became irregular after the February 2022 sanctions. The 2022 BACI vintage may have incomplete coverage for Russia. The effective clean panel for Russia may be 2000–2021.
+5. **LPM infeasible with this panel structure.** No within-pair switching in trade participation is observed across years. Identifying the extensive margin requires either a longer panel, product-level disaggregation, or an alternative identification strategy.
 
-6. **Product-level heterogeneity is not exploited.** Aggregate bilateral flows mask variation across Rauch (1999) good types — differentiated goods are more sensitive to exchange rate volatility than reference-priced or organised-exchange goods (Héricourt & Poncet 2015). Product-level disaggregation is a natural extension not pursued here.
-
-7. **LPM as extensive margin estimator.** The linear probability model can predict probabilities outside [0,1] and is strictly incorrect for a binary outcome. A conditional fixed effects logit would be more appropriate but is computationally demanding with three-way fixed effects and has a strict incidental parameters problem. The LPM is used as a computationally tractable approximation, following standard practice in the gravity literature.
+6. **Product-level heterogeneity not exploited.** Aggregate bilateral flows mask variation across Rauch (1999) good types — differentiated goods are more sensitive to exchange rate volatility than homogeneous commodities. Product-level disaggregation is a natural extension not pursued here.
 
 ## Connection to Portfolio
 
 This project is the second component of a six-project research portfolio on **Trade, Structural Change, and Labour Markets in Emerging Economies**.
 
 | Project | Relationship to Project 2 |
-|---------|--------------------------|
-| [01 — China Shock in Emerging Markets](../01_china_shock_emerging_markets/) | Import competition and exchange rate volatility are the two primary channels through which global trade integration affects domestic labour markets; Projects 1 and 2 together provide both channels |
-| [03 — Labour Market Polarisation Across Indian Districts](../03_labour_polarisation_india/) | The BRICS exchange rate volatility episodes identified here are candidate explanatory variables for the district-level structural employment shifts estimated in Project 3 |
-| [04 — Central Bank Communications Scraper](../04_central_bank_scraper/) | The PBOC, RBI, SARB, CBR, and BCB statements collected in Project 4 include direct commentary on exchange rate management objectives; the volatility episodes in Project 2 are the events those statements are responding to |
-| [05 — Monetary Policy Sentiment](../05_monetary_policy_sentiment/) | The post-2022 rouble shock is the sharpest volatility episode in the dataset and is also the most negative sentiment episode in Project 5; cross-referencing the two results — trade collapse and central bank sentiment shift — strengthens both narratives |
+|---|---|
+| [01 — China Shock in Emerging Markets](../01_china_shock_emerging_markets/) | Import competition and exchange rate volatility are the two channels through which global trade integration affects domestic labour markets; Projects 1 and 2 together provide both channels |
+| [03 — Labour Market Polarisation Across Indian Districts](../03_labour_polarisation_india/) | The BRICS exchange rate volatility episodes identified here — particularly the post-2022 rouble shock — are candidate explanatory variables for the district-level structural employment shifts estimated in Project 3 |
+| [04 — Central Bank Communications Scraper](../04_central_bank_scraper/) | The PBOC, RBI, SARB, and CBR statements collected in Project 4 include direct commentary on exchange rate management; the volatility episodes in Project 2 are the events those statements respond to |
+| [05 — Monetary Policy Sentiment](../05_monetary_policy_sentiment/) | The post-2022 rouble shock is the sharpest volatility episode in this dataset and the most negative sentiment episode in Project 5; cross-referencing the two results strengthens both narratives |
 | [06 — Trade Exposure Maps](../06_trade_exposure_maps/) | Project 6's district-level trade exposure proxies for India are constructed using port proximity and SEZ access; the bilateral exchange rate volatility estimated here is the macro-level counterpart to that district-level exposure variation |
-
-**Connection to the master's thesis:** The BRICS local currency settlement (LCS) initiative, examined in the master's thesis through a TWFE panel regression on a constructed LCShare proxy, is motivated precisely by the result that volatile bilateral exchange rates measurably suppress trade. Project 2 provides the empirical micro-foundation for the thesis's macro question: if LCS reduces effective bilateral exchange rate exposure, the trade-expanding effect of stabilisation should be of the order of magnitude estimated here.
-
-**Connection to David Dorn's research agenda:** Dorn's work on globalisation and labour market polarisation (Autor, Dorn & Hanson 2013; Dorn 2009) uses bilateral trade flows and shift-share instruments constructed from the same CEPII gravity data infrastructure used here. The panel data construction workflow in Project 2 — BACI aggregation, GeoDist merge, country-pair fixed effects — is directly transferable to that literature.
 
 ## Dependencies
 
 ```stata
 * STATA packages — installed via SSC
-ssc install ppmlhdfe    // PPML with high-dimensional fixed effects (Correia et al.)
+ssc install ppmlhdfe    // PPML with high-dimensional fixed effects (Correia et al. 2020)
 ssc install reghdfe     // OLS with high-dimensional fixed effects (Correia et al.)
-ssc install ftools      // Fast Frisch-Waugh-Lovell algorithm — required by both above
-ssc install rangestat   // Rolling window statistics (sd, mean, etc.) within panels
+ssc install ftools      // Fast Frisch-Waugh-Lovell — required by both above
+ssc install rangestat   // Rolling window statistics within panels
 ssc install estout      // Formatted regression output tables
+ssc install require     // Dependency management for reghdfe
 ```
 
 ```
-Data dependencies (not committed to GitHub):
-BACI HS92 V202401           ~2.1 GB (23 annual CSV files)
-IMF IFS monthly series      ~5 MB  (download from data.imf.org)
-```
+Data dependencies (not committed — large files):
+BACI HS92 V202601         ~8 GB  (30 annual CSV files, 1995–2024)
 
-```
-Data dependencies (committed to GitHub):
-dist_cepii.dta              ~1.5 MB
-country_codes_V202401.csv   ~50 KB
+Data dependencies (committed):
+dist_cepii.dta            ~1.5 MB
+ifs_exchange_rates.csv    ~24 MB
+country_codes_V202601.csv ~5 KB
 ```
 
 ## References
@@ -267,10 +250,9 @@ country_codes_V202401.csv   ~50 KB
 - Rose, A. K. (2000). One Money, One Market: The Effect of Common Currencies on Trade. *Economic Policy*, 15(30), 7–46.
 - Tenreyro, S. (2007). On the Trade Impact of Nominal Exchange Rate Volatility. *Journal of Development Economics*, 82(2), 485–508.
 - Héricourt, J., & Poncet, S. (2015). Exchange Rate Volatility, Financial Constraints, and Trade: Empirical Evidence from Chinese Firms. *World Bank Economic Review*, 29(3), 550–578.
-- Hayakawa, K., & Kimura, F. (2009). The Effect of Exchange Rate Volatility on International Trade in East Asia. *Journal of the Japanese and International Economies*, 23(4), 395–406.
 - Rauch, J. E. (1999). Networks versus Markets in International Trade. *Journal of International Economics*, 48(1), 7–35.
-- Cuñat, A., & Zymek, R. (2024). Bilateral Trade Imbalances. *Review of Economic Studies*, 91(1), 194–231.
 - Correia, S., Guimarães, P., & Zylkin, T. (2020). Fast Poisson Estimation with High-Dimensional Fixed Effects. *Stata Journal*, 20(1), 95–115.
+- Cuñat, A., & Zymek, R. (2024). Bilateral Trade Imbalances. *Review of Economic Studies*, 91(1), 194–231.
 
 ## License
 

@@ -8,14 +8,14 @@ Each project uses a distinct analytical tool — Python, STATA, R, web scraping,
 
 ## Portfolio Overview
 
-| # | Project | Tool | Theme |
-|---|---------|------|-------|
-| 1 | [The China Shock in Emerging Markets](./01_china_shock_emerging_markets/) | Python | Replicating & extending Autor, Dorn & Hanson (2013) to an emerging market context |
-| 2 | [Exchange Rate Volatility and Export Margins](./02_exchange_rate_export_margins/) | STATA | Panel evidence from BRICS on trade flow responses to currency volatility |
-| 3 | [Labour Market Polarisation Across Indian Districts](./03_labour_polarisation_india/) | R | Distributional analysis of structural change and trade exposure using PLFS 2017-18 to 2023-24 |
-| 4 | [Scraping Central Bank Communications](./04_central_bank_scraper/) | Web Scraping | A structured dataset of 302 BRICS monetary policy statements (1996–2026) |
-| 5 | [Hawkish or Dovish? Monetary Policy Sentiment Across BRICS](./05_monetary_policy_sentiment/) | Text2Data / NLP | Sentiment analysis and LDA topic modelling on central bank communications |
-| 6 | [Mapping Trade Exposure and Structural Change](./06_trade_exposure_maps/) | Geospatial | District-level visualisation of structural change and trade infrastructure proximity across India |
+| # | Project | Tool | Theme | Status |
+|---|---------|------|-------|--------|
+| 1 | [The China Shock in Emerging Markets](./01_china_shock_emerging_markets/) | Python | Replicating & extending Autor, Dorn & Hanson (2013) to an emerging market context | 🔲 Planned |
+| 2 | [Exchange Rate Volatility and Export Margins](./02_exchange_rate_export_margins/) | STATA | Panel gravity evidence from BRICS on trade flow responses to currency volatility | ✅ Complete |
+| 3 | [Labour Market Polarisation Across Indian Districts](./03_labour_polarisation_india/) | R | Distributional analysis of structural change and trade exposure using PLFS 2017-18 to 2023-24 | ✅ Complete |
+| 4 | [Scraping Central Bank Communications](./04_central_bank_scraper/) | Web Scraping | A structured dataset of 302 BRICS monetary policy statements (1996–2026) | ✅ Complete |
+| 5 | [Hawkish or Dovish? Monetary Policy Sentiment Across BRICS](./05_monetary_policy_sentiment/) | Text2Data / NLP | Sentiment analysis and LDA topic modelling on central bank communications | ✅ Complete |
+| 6 | [Mapping Trade Exposure and Structural Change](./06_trade_exposure_maps/) | Geospatial | District-level visualisation of structural change and trade infrastructure proximity across India | ✅ Complete |
 
 ---
 
@@ -36,7 +36,7 @@ Projects 4 and 5 form a deliberate pipeline: Project 4 builds the dataset, Proje
 ## Tools & Methods
 
 - **Python** — pandas, statsmodels, matplotlib, BeautifulSoup, spaCy, gensim, PyMuPDF, geopandas, mapclassify, shapely, pyproj
-- **STATA** — panel data estimation (xtset, xtreg, areg), IV regression, shift-share instruments
+- **STATA** — panel data estimation (`ppmlhdfe`, `reghdfe`), PPML gravity, high-dimensional fixed effects, rolling volatility construction, `esttab` output
 - **R** — haven, tidyverse, ggplot2, fixest, patchwork, sf, R Markdown
 - **Web Scraping** — BeautifulSoup, requests, Selenium
 - **NLP** — Loughran-McDonald financial dictionary, FinBERT, LDA topic modelling (gensim)
@@ -46,13 +46,78 @@ Projects 4 and 5 form a deliberate pipeline: Project 4 builds the dataset, Proje
 
 ## Data Sources
 
-- World Bank / UN Comtrade — bilateral trade flows
+- CEPII BACI HS92 (V202601) — harmonised bilateral trade flows, 1995–2024
+- IMF International Financial Statistics — monthly exchange rates, domestic currency per USD
+- CEPII GeoDist — bilateral gravity controls (distance, language, colonial links, contiguity)
 - PLFS (Periodic Labour Force Survey, MOSPI) — Indian employment surveys, 2017-18 to 2023-24
 - SARB, RBI, Bank of Russia — central bank monetary policy statements (scraped + PDF)
 - BIS CBSPEECHES database — PBOC communications
 - SHRUG v2.1.pakora (Asher, Lunt, Matsuura & Novosad, 2021) — Indian district-level Economic Census and Population Census data
 - DataMeet Community Maps — Census 2011 district boundary shapefiles
 - Indian Ports Association / Ministry of Commerce / DPIIT — trade infrastructure coordinates
+
+---
+
+## Project 2 — Exchange Rate Volatility and Export Margins
+
+**Status: ✅ Complete — 3 Do-Files**
+
+Three-do-file STATA gravity analysis examining whether bilateral exchange rate volatility affects BRICS bilateral trade at the intensive and extensive margins, using a panel of 5 BRICS exporters, up to 232 partners, and 23 years (2000–2022).
+
+### Research Question
+
+Does bilateral exchange rate volatility reduce how much BRICS economies export to their partners, and whether they trade at all, after controlling for multilateral resistance and all time-invariant bilateral characteristics?
+
+### Data Pipeline
+
+**01_clean.do** loads and processes three raw data sources. The BACI HS92 loop processes 23 annual CSV files (7–11 million rows each), filtering immediately to BRICS exporters and collapsing to bilateral annual totals — runtime approximately 10 minutes. The IFS exchange rate section filters 902,668 raw rows to the monthly period-average domestic-currency-per-USD series using three simultaneous conditions, constructs bilateral cross-rates via `joinby`, computes rolling 12-month standard deviations using `rangestat`, and collapses to December annual observations. Outputs: `brics_trade_panel.dta` (23,940 obs) and `volatility_panel.dta` (20,565 obs).
+
+**02_merge.do** merges the two panels (1:1 on exporter-importer-year), merges GeoDist gravity controls (m:1 on pair), and generates all analysis variables — `ln_trade`, `trade_dummy`, `ln_distw`, `pair_id`, `exporter_year`, `importer_year`, `russia_post22`. Output: `master_panel.dta` (24,579 obs, 16 variables).
+
+**03_analysis.do** runs five regression specifications and exports three formatted results tables via `esttab`.
+
+### Specification
+
+The primary specification is PPML with three-way fixed effects — pair (`φ_ij`), exporter × year (`γ_it`), and importer × year (`δ_jt`) — estimated with `ppmlhdfe`. These absorb multilateral resistance (Anderson & van Wincoop 2003) and all time-invariant bilateral characteristics without requiring gravity controls to be entered explicitly. Log-OLS with the same fixed effects is reported as a robustness check. An LPM for the extensive margin is documented as infeasible (see Key Findings).
+
+### Key Findings
+
+**Primary result — null at the intensive margin.** Exchange rate volatility has no statistically significant effect on BRICS bilateral trade under three-way fixed effects:
+
+| Specification | β₁ | SE | p | N |
+|---|---|---|---|---|
+| (1) PPML — full sample | +0.490 | 0.835 | 0.557 | 19,914 |
+| (2) Log-OLS — full sample | -1.823 | 1.316 | 0.166 | 19,914 |
+| (3) LPM | — | — | — | Infeasible |
+
+The Pseudo R² of 0.9951 indicates the three-way FE absorb almost all variation in trade — the effective within-pair identifying variation for volatility is narrow with five exporters and 23 years.
+
+**Russia outlier.** The positive PPML sign is driven by Russia post-2022. Dropping the 197 post-sanctions Russia observations flips the PPML coefficient to −0.546 (p = 0.517) — negative and directionally consistent with theory, but still insignificant:
+
+| Specification | Full sample | Excl. Russia 2022+ |
+|---|---|---|
+| PPML | +0.490 | -0.546 |
+| Log-OLS | -1.823 | -1.461 |
+
+**BRICS heterogeneity.** The interaction specification recovers country-specific effects. Russia's interaction (vol_rus) is the only significant coefficient (+0.451, p = 0.037), reflecting the sanctions endogeneity problem — extreme volatility and trade redirection toward non-sanctioning partners are both consequences of the same shock. Brazil, China, and India all show the expected negative sign, consistent with regime-specific predictions.
+
+**Extensive margin — LPM infeasible.** The 639 zero-trade observations are concentrated in pairs that never trade across the full 23-year panel. Pair fixed effects perfectly predict `trade_dummy` for these pairs, leaving no within-pair variation for volatility to explain.
+
+**Honest interpretation.** The null result is consistent with the aggregate gravity literature (Tenreyro 2007; Head & Mayer 2014) and reflects the demanding identification requirement of three-way fixed effects with a small exporter panel. The direction of the estimated effect is consistently negative once the Russia 2022 outlier is accounted for.
+
+### Outputs
+
+| File | Description |
+|---|---|
+| `brics_trade_panel.dta` | 23,940 obs — bilateral annual trade flows, BRICS exporters |
+| `volatility_panel.dta` | 20,565 obs — annual bilateral volatility measures |
+| `master_panel.dta` | 24,579 obs — fully merged analysis dataset, 16 variables |
+| `output/results_table.csv` | Primary results — PPML and log-OLS, full sample |
+| `output/sensitivity_table.csv` | Sensitivity — excluding Russia post-2022 |
+| `output/heterogeneity_table.csv` | BRICS country-specific volatility interactions |
+| `Project2_Documentation - 01_clean.docx` | Full documentation for 01_clean.do |
+| `Project2_Documentation - 02_merge.docx` | Full documentation for 02_merge.do |
+| `Project2_Documentation - 03_analysis.docx` | Full documentation for 03_analysis.do |
 
 ---
 
@@ -144,7 +209,7 @@ Boilerplate stripping, SARB date repair, date parsing, spaCy lemmatisation and s
 
 **Layer 2 — FinBERT robustness check:** Run on a stratified 40-statement sample. Spearman correlation with LM net scores: 0.441 (p=0.004). Both methods produce identical bank-level sentiment rankings.
 
-Key finding: post-2022 divergence between CBR (sharply more negative and uncertain) and PBOC (stable to improving) is the strongest event-driven signal in the dataset. Bank sentiment rankings — SARB ≈ CBR (most negative) > RBI > PBOC (most positive) — are consistent across both methods.
+Key finding: post-2022 divergence between CBR (sharply more negative and uncertain) and PBOC (stable to improving) is the strongest event-driven signal in the dataset. Bank sentiment rankings — SARB ≈ CBR (most negative) > RBI > PBOC (most positive) — are consistent across both methods. The CBR sentiment collapse in 2022 aligns precisely with the rouble volatility spike documented in Project 2.
 
 Output: `brics_mpc_sentiment.csv`
 
@@ -197,7 +262,7 @@ Four publication-ready figures (PNG at 300 dpi + PDF) covering non-farm share ev
 | Project | Status |
 |---------|--------|
 | 01 — China Shock in Emerging Markets (Python) | 🔲 Planned |
-| 02 — Exchange Rate Volatility and Export Margins (STATA) | 🔲 Planned |
+| 02 — Exchange Rate Volatility and Export Margins (STATA) | ✅ Complete — 3 Do-Files |
 | 03 — Labour Market Polarisation Across Indian Districts (R) | ✅ Complete — All 6 Notebooks |
 | 04 — Scraping Central Bank Communications | ✅ Complete |
 | 05 — Monetary Policy Sentiment Across BRICS (NB1 + NB2 + NB3) | ✅ Complete |
