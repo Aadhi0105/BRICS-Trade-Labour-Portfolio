@@ -1,0 +1,229 @@
+--------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/psat0501/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfol
+> io/02_exchange_rate_export_margins/log/02_merge.log
+  log type:  text
+ opened on:   1 Jun 2026, 15:01:54
+
+. 
+. * ── Section 1: Load Trade Panel and Standardise Types ────────
+. 
+. use "data/brics_trade_panel.dta", clear
+
+. recast int year
+
+. recast str4 exporter importer
+
+. 
+. * ── Section 2: Merge Volatility Panel ────────────────────────
+. 
+. merge 1:1 exporter importer year using "data/volatility_panel.dta", nogenerate
+(variable year was int, now float to accommodate using data's values)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         4,654
+        from master                     4,015  
+        from using                        639  
+
+    Matched                            19,926  
+    -----------------------------------------
+
+. drop if missing(exporter) | missing(importer)
+(1 observation deleted)
+
+. duplicates drop exporter importer year, force
+
+Duplicates in terms of exporter importer year
+
+(0 observations are duplicates)
+
+. di "After volatility merge: " _N " observations"
+After volatility merge: 24579 observations
+
+. count if missing(volatility)
+  4,014
+
+. 
+. * ── Section 3: Merge GeoDist Gravity Controls ────────────────
+. 
+. rename exporter iso_o
+
+. rename importer iso_d
+
+. merge m:1 iso_o iso_d using "data/dist_cepii.dta", ///
+>     keepusing(distw comlang_off colony contig) ///
+>     keep(match master) nogenerate
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         1,274
+        from master                     1,274  
+        from using                          0  
+
+    Matched                            23,305  
+    -----------------------------------------
+
+. rename iso_o exporter
+
+. rename iso_d importer
+
+. di "After GeoDist merge: " _N " observations"
+After GeoDist merge: 24579 observations
+
+. count if missing(distw)
+  1,612
+
+. 
+. * ── Section 4: Generate Analysis Variables ───────────────────
+. 
+. * Dependent variables
+. gen ln_trade = ln(trade)
+(639 missing values generated)
+
+. label variable ln_trade "Log bilateral trade value (USD thousands)"
+
+. 
+. gen trade_dummy = (trade > 0) if !missing(trade)
+(639 missing values generated)
+
+. label variable trade_dummy "1 if positive bilateral trade flow"
+
+. 
+. * Log distance (for log-OLS specification only)
+. gen ln_distw = ln(distw)
+(1,612 missing values generated)
+
+. label variable ln_distw "Log population-weighted bilateral distance (km)"
+
+. 
+. * Fixed effect identifiers
+. egen pair_id       = group(exporter importer)
+
+. egen exporter_year = group(exporter year)
+
+. egen importer_year = group(importer year)
+
+. label variable pair_id       "Unique numeric ID for exporter-importer pair"
+
+. label variable exporter_year "Exporter × year FE identifier"
+
+. label variable importer_year "Importer × year FE identifier"
+
+. 
+. * Russia post-sanctions sensitivity indicator
+. gen russia_post22 = (exporter == "RUS" & year >= 2022)
+
+. label variable russia_post22 "1 for RUS exporter observations, 2022 onwards"
+
+. 
+. * ── Section 5: Data Quality Checks ──────────────────────────
+. 
+. di "──────────────────────────────────────"
+──────────────────────────────────────
+
+. di "DATA QUALITY REPORT"
+DATA QUALITY REPORT
+
+. di "──────────────────────────────────────"
+──────────────────────────────────────
+
+. di "Total observations:              " _N
+Total observations:              24579
+
+. count if trade > 0
+  24,579
+
+. di "Observations — positive trade:   " r(N)
+Observations — positive trade:   24579
+
+. count if trade == 0 | missing(trade)
+  639
+
+. di "Observations — zero/missing trade: " r(N)
+Observations — zero/missing trade: 639
+
+. count if missing(volatility)
+  4,014
+
+. di "Observations — missing volatility: " r(N)
+Observations — missing volatility: 4014
+
+. count if missing(distw)
+  1,612
+
+. di "Observations — missing distw:    " r(N)
+Observations — missing distw:    1612
+
+. count if russia_post22 == 1
+  197
+
+. di "Russia post-2022 observations:   " r(N)
+Russia post-2022 observations:   197
+
+. di "──────────────────────────────────────"
+──────────────────────────────────────
+
+. 
+. tabulate exporter
+
+   exporter |      Freq.     Percent        Cum.
+------------+-----------------------------------
+        BRA |      4,961       20.18       20.18
+        CHN |      4,849       19.73       39.91
+        IND |      5,030       20.46       60.38
+        RUS |      4,750       19.33       79.70
+        ZAF |      4,989       20.30      100.00
+------------+-----------------------------------
+      Total |     24,579      100.00
+
+. tabulate year
+
+       year |      Freq.     Percent        Cum.
+------------+-----------------------------------
+       2000 |      1,057        4.30        4.30
+       2001 |      1,057        4.30        8.60
+       2002 |      1,060        4.31       12.91
+       2003 |      1,059        4.31       17.22
+       2004 |      1,061        4.32       21.54
+       2005 |      1,068        4.35       25.88
+       2006 |      1,067        4.34       30.22
+       2007 |      1,069        4.35       34.57
+       2008 |      1,065        4.33       38.91
+       2009 |      1,067        4.34       43.25
+       2010 |      1,071        4.36       47.61
+       2011 |      1,075        4.37       51.98
+       2012 |      1,078        4.39       56.37
+       2013 |      1,079        4.39       60.76
+       2014 |      1,069        4.35       65.10
+       2015 |      1,071        4.36       69.46
+       2016 |      1,071        4.36       73.82
+       2017 |      1,071        4.36       78.18
+       2018 |      1,081        4.40       82.57
+       2019 |      1,078        4.39       86.96
+       2020 |      1,072        4.36       91.32
+       2021 |      1,069        4.35       95.67
+       2022 |      1,064        4.33      100.00
+------------+-----------------------------------
+      Total |     24,579      100.00
+
+. 
+. * ── Save ─────────────────────────────────────────────────────
+. 
+. save "data/master_panel.dta", replace
+file data/master_panel.dta saved
+
+. di "Master panel saved."
+Master panel saved.
+
+. di "Final observations: " _N
+Final observations: 24579
+
+. 
+. log close
+      name:  <unnamed>
+       log:  /Users/psat0501/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfol
+> io/02_exchange_rate_export_margins/log/02_merge.log
+  log type:  text
+ closed on:   1 Jun 2026, 15:01:54
+--------------------------------------------------------------------------------
