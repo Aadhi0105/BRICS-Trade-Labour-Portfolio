@@ -1,0 +1,687 @@
+--------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/psat0501/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfol
+> io/02_exchange_rate_export_margins/log/01_clean.log
+  log type:  text
+ opened on:   1 Jun 2026, 10:53:41
+
+. 
+. ** ── Section 1: BACI Trade Flows ─────────────────────────────
+. 
+. * Step 1: Save country code crosswalk as .dta for merging
+. import delimited "data/BACI_HS92_V202601/country_codes_V202601.csv", ///
+>     clear varnames(1) encoding(UTF-8)
+(4 vars, 238 obs)
+
+. keep country_code country_iso3
+
+. rename country_code baci_code
+
+. rename country_iso3 iso3
+
+. save "data/country_crosswalk.dta", replace
+file data/country_crosswalk.dta saved
+
+. 
+. * Step 2: Loop over years, load BACI, filter, collapse, append
+. tempfile baci_master
+
+. save `baci_master', replace emptyok
+(file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l not
+    found)
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+
+. 
+. local brics_codes "76 156 643 699 710"
+
+. 
+. forvalues yr = 2000/2022 {
+  2.     
+.     di "Processing year `yr'..."
+  3.     
+.     import delimited ///
+>         "data/BACI_HS92_V202601/BACI_HS92_Y`yr'_V202601.csv", ///
+>         clear varnames(1)
+  4.     
+.     keep if i == 76 | i == 156 | i == 643 | i == 699 | i == 710
+  5.     
+.     collapse (sum) v, by(t i j)
+  6.     
+.     * Merge exporter codes to ISO3
+.     rename i baci_code
+  7.     merge m:1 baci_code using "data/country_crosswalk.dta", ///
+>         keep(match) nogenerate
+  8.     rename iso3 exporter
+  9.     rename baci_code i
+ 10.     
+.     * Merge importer codes to ISO3
+.     rename j baci_code
+ 11.     merge m:1 baci_code using "data/country_crosswalk.dta", ///
+>         keep(match) nogenerate
+ 12.     rename iso3 importer
+ 13.     drop baci_code
+ 14.     
+.     drop i 
+ 15.     rename t year
+ 16.     rename v trade
+ 17.     
+.     append using `baci_master'
+ 18.     save `baci_master', replace
+ 19. }
+Processing year 2000...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 7,272,709 obs)
+(6,557,782 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,006  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,006  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2001...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 7,517,476 obs)
+(6,761,677 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,004  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,004  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2002...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 7,726,247 obs)
+(6,925,584 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,017  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,017  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2003...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 7,981,414 obs)
+(7,116,556 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,030  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,030  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2004...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 8,359,779 obs)
+(7,444,009 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,025  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,025  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2005...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 8,656,742 obs)
+(7,682,827 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,036  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,036  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2006...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 9,002,200 obs)
+(7,983,714 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,043  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,043  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2007...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 9,194,704 obs)
+(8,158,003 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,049  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,049  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2008...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 9,347,080 obs)
+(8,291,028 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,042  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,042  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2009...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 9,218,581 obs)
+(8,169,825 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,046  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,046  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2010...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 9,470,765 obs)
+(8,400,784 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,038  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,038  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2011...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 9,640,712 obs)
+(8,549,807 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,045  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,045  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2012...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 9,937,050 obs)
+(8,827,815 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,053  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,053  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2013...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 10,098,942 obs)
+(8,979,955 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,052  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,052  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2014...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 10,145,672 obs)
+(9,010,884 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,047  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,047  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2015...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 10,499,686 obs)
+(9,351,202 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,045  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,045  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2016...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 10,569,571 obs)
+(9,394,459 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,051  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,051  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2017...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 10,821,738 obs)
+(9,624,000 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,054  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,054  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2018...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 10,924,964 obs)
+(9,695,485 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,064  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,064  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2019...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 11,016,660 obs)
+(9,763,314 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,065  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,065  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2020...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 10,638,241 obs)
+(9,425,766 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,054  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,054  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2021...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 11,146,476 obs)
+(9,887,439 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,051  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,051  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+Processing year 2022...
+(encoding automatically selected: ISO-8859-2)
+(6 vars, 11,154,874 obs)
+(9,929,130 observations deleted)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,023  
+    -----------------------------------------
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                             1,023  
+    -----------------------------------------
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000l saved as
+    .dta format
+
+. 
+. * Step 3: Save final panel
+. use `baci_master', clear
+
+. save "data/brics_trade_panel.dta", replace
+file data/brics_trade_panel.dta saved
+
+. 
+. di "BACI section complete."
+BACI section complete.
+
+. di "Observations in panel: " _N
+Observations in panel: 24178
+
+.                 
+.         
+. * ── Section 2: Exchange Rate Volatility ─────────────────────
+. 
+. * Step 1: Load IFS, keep monthly period-average domestic currency per USD only
+. import delimited "data/ifs_exchange_rates.csv", ///
+>     clear varnames(1) encoding(UTF-8)
+(6 vars, 902,668 obs)
+
+. keep if frequencyid == "M" & indicatorid == "XDC_USD" ///
+>     & type_of_transformationid == "PA_RT"
+(849,843 observations deleted)
+
+. drop frequencyid indicatorid type_of_transformationid
+
+. 
+. * Step 2: Parse time_period into year and month integers
+. gen year  = real(substr(time_period, 1, 4))
+(24 missing values generated)
+
+. gen month = real(substr(time_period, 7, 2))
+(24 missing values generated)
+
+. drop time_period
+
+. drop if missing(year) | missing(month)
+(24 observations deleted)
+
+. 
+. * Step 3: Keep only countries appearing in BACI trade panel
+. preserve
+
+. use "data/brics_trade_panel.dta", clear
+
+. keep importer
+
+. duplicates drop
+
+Duplicates in terms of all variables
+
+(23,948 observations deleted)
+
+. rename importer countryid
+
+. tempfile partner_ids
+
+. save `partner_ids'
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000n saved as
+    .dta format
+
+. restore
+
+. 
+. preserve
+
+. use "data/brics_trade_panel.dta", clear
+
+. keep exporter
+
+. duplicates drop
+
+Duplicates in terms of all variables
+
+(24,172 observations deleted)
+
+. rename exporter countryid
+
+. append using `partner_ids'
+
+. duplicates drop
+
+Duplicates in terms of all variables
+
+(6 observations deleted)
+
+. tempfile all_countries
+
+. save `all_countries'
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000p saved as
+    .dta format
+
+. restore
+
+. 
+. merge m:1 countryid using `all_countries', keep(match) nogenerate
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            49,642  
+    -----------------------------------------
+
+. 
+. * Step 4: Rename and save country-level monthly rates
+. rename countryid iso3
+
+. rename obs_value e_usd
+
+. keep iso3 year month e_usd
+
+. sort iso3 year month
+
+. save "data/ifs_monthly_rates.dta", replace
+file data/ifs_monthly_rates.dta saved
+
+. 
+. * Step 5: Construct bilateral cross-rates
+. use "data/ifs_monthly_rates.dta", clear
+
+. keep if inlist(iso3, "BRA", "CHN", "IND", "RUS", "ZAF")
+(48,262 observations deleted)
+
+. rename iso3 exporter
+
+. rename e_usd e_exporter
+
+. tempfile brics_rates
+
+. save `brics_rates'
+file /var/folders/_v/_crdj5fj7ts3wd_fl6th0pch0000gn/T//S_59355.00000q saved as
+    .dta format
+
+. 
+. use "data/ifs_monthly_rates.dta", clear
+
+. rename iso3 importer
+
+. rename e_usd e_importer
+
+. joinby year month using `brics_rates'
+
+. drop if exporter == importer
+(1,380 observations deleted)
+
+. 
+. * Step 6: Log exchange rate and monthly changes
+. gen ln_e = ln(e_exporter) - ln(e_importer)
+
+. egen pair_id = group(exporter importer)
+
+. gen ym = ym(year, month)
+
+. format ym %tm
+
+. xtset pair_id ym
+
+Panel variable: pair_id (unbalanced)
+ Time variable: ym, 2000m1 to 2022m12, but with gaps
+         Delta: 1 month
+
+. gen delta_ln_e = d.ln_e
+(975 missing values generated)
+
+. 
+. * Step 7: Rolling 12-month standard deviation
+. rangestat (sd) delta_ln_e, interval(ym -11 0) by(pair_id)
+
+. rename delta_ln_e_sd volatility
+
+. 
+. * Step 8: Collapse to annual — keep December observation
+. keep if month == 12
+(226,260 observations deleted)
+
+. keep exporter importer year volatility
+
+. drop if missing(volatility)
+(5 observations deleted)
+
+. 
+. save "data/volatility_panel.dta", replace
+file data/volatility_panel.dta saved
+
+. di "Exchange rate section complete."
+Exchange rate section complete.
+
+. di "Observations in volatility panel: " _N
+Observations in volatility panel: 20565
+
+. 
+. log close
+      name:  <unnamed>
+       log:  /Users/psat0501/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfol
+> io/02_exchange_rate_export_margins/log/01_clean.log
+  log type:  text
+ closed on:   1 Jun 2026, 11:08:44
+--------------------------------------------------------------------------------
