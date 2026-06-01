@@ -1,0 +1,17 @@
+="Table 2: Sensitivity — Excluding Russia Post-February 2022"
+
+="",="(1)",="(2)"
+="",="(1) PPML",="(2) Log-OLS"
+
+="volatility",="-0.546",="-1.461"
+="",="(0.841)",="(1.331)"
+
+="N",="19777",="19777"
+="Pseudo R2",="0.996",=""
+="R-squared",="",="0.947"
+
+="Standard errors in parentheses"
+="Sample excludes Russia exporter observations from 2022 onwards (N=197 dropped)."
+="Three-way fixed effects: pair, exporter×year, importer×year."
+="Robust standard errors in parentheses."
+="* p<0.10, ** p<0.05, *** p<0.01"

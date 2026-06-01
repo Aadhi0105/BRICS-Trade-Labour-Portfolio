@@ -1,0 +1,448 @@
+--------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/psat0501/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfol
+> io/02_exchange_rate_export_margins/log/03_analysis.log
+  log type:  text
+ opened on:   1 Jun 2026, 21:07:06
+
+. 
+. use "data/master_panel.dta", clear
+
+. 
+. * ── Section 1: Primary Specifications ───────────────────────
+. 
+. * Column 1: PPML — full sample, three-way FE
+. * Primary estimator. Handles zeros. Heteroskedasticity-consistent.
+. * β₁ interpreted as semi-elasticity of trade levels w.r.t. volatility.
+. ppmlhdfe trade volatility, ///
+>     absorb(pair_id exporter_year importer_year) vce(robust)
+(dropped 12 observations that are either singletons or separated by a fixed effe
+> ct)
+warning: dependent variable takes very low values after standardizing (5.8282e-1
+> 1)
+Iteration 1:   deviance = 1.4078e+10  eps = .         iters = 6    tol = 1.0e-04
+>   min(eta) =  -4.40  P   
+Iteration 2:   deviance = 4.1766e+09  eps = 2.37e+00  iters = 5    tol = 1.0e-04
+>   min(eta) =  -5.67      
+Iteration 3:   deviance = 2.0635e+09  eps = 1.02e+00  iters = 5    tol = 1.0e-04
+>   min(eta) =  -7.36      
+Iteration 4:   deviance = 1.4953e+09  eps = 3.80e-01  iters = 4    tol = 1.0e-04
+>   min(eta) =  -8.89      
+Iteration 5:   deviance = 1.3492e+09  eps = 1.08e-01  iters = 4    tol = 1.0e-04
+>   min(eta) = -10.18      
+Iteration 6:   deviance = 1.3138e+09  eps = 2.69e-02  iters = 4    tol = 1.0e-04
+>   min(eta) = -11.74      
+Iteration 7:   deviance = 1.3057e+09  eps = 6.22e-03  iters = 3    tol = 1.0e-04
+>   min(eta) = -13.07      
+Iteration 8:   deviance = 1.3040e+09  eps = 1.34e-03  iters = 4    tol = 1.0e-04
+>   min(eta) = -14.15      
+Iteration 9:   deviance = 1.3036e+09  eps = 2.64e-04  iters = 4    tol = 1.0e-04
+>   min(eta) = -14.84      
+Iteration 10:  deviance = 1.3036e+09  eps = 4.56e-05  iters = 3    tol = 1.0e-04
+>   min(eta) = -15.68      
+Iteration 11:  deviance = 1.3036e+09  eps = 6.28e-06  iters = 5    tol = 1.0e-05
+>   min(eta) = -16.17      
+Iteration 12:  deviance = 1.3036e+09  eps = 5.49e-07  iters = 5    tol = 1.0e-06
+>   min(eta) = -16.34   S  
+Iteration 13:  deviance = 1.3036e+09  eps = 1.62e-08  iters = 5    tol = 1.0e-07
+>   min(eta) = -16.36   S  
+Iteration 14:  deviance = 1.3036e+09  eps = 7.31e-11  iters = 5    tol = 1.0e-08
+>   min(eta) = -16.36   S  
+Iteration 15:  deviance = 1.3036e+09  eps = 1.33e-14  iters = 2    tol = 1.0e-09
+>   min(eta) = -16.36   S O
+--------------------------------------------------------------------------------
+> ----------------------------
+(legend: p: exact partial-out   s: exact solver   h: step-halving   o: epsilon b
+> elow tolerance)
+Converged in 15 iterations and 64 HDFE sub-iterations (tol = 1.0e-08)
+
+HDFE PPML regression                              No. of obs      =     19,914
+Absorbing 3 HDFE groups                           Residual df     =     14,938
+                                                  Wald chi2(1)    =       0.34
+Deviance             =   1303563347               Prob > chi2     =     0.5571
+Log pseudolikelihood = -651910878.2               Pseudo R2       =     0.9951
+------------------------------------------------------------------------------
+             |               Robust
+       trade | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  volatility |   .4904092   .8352842     0.59   0.557    -1.146718    2.127536
+       _cons |   17.32308   .0174434   993.10   0.000     17.28889    17.35726
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-------------------------------------------------------+
+   Absorbed FE | Categories  - Redundant  = Num. Coefs |
+---------------+---------------------------------------|
+       pair_id |       942           0         942     |
+ exporter_year |       115           5         110     |
+ importer_year |      4113         190        3923    ?|
+-------------------------------------------------------+
+? = number of redundant parameters may be higher
+
+. estimates store ppml_main
+
+. 
+. * Column 2: Log-OLS — positive trade flows only, three-way FE
+. * Robustness check. Sample restricted to ln_trade non-missing.
+. * Coefficient not directly comparable to PPML due to sample selection.
+. reghdfe ln_trade volatility, ///
+>     absorb(pair_id exporter_year importer_year) vce(robust)
+(dropped 12 singleton observations)
+(MWFE estimator converged in 9 iterations)
+
+HDFE Linear regression                            Number of obs   =     19,914
+Absorbing 3 HDFE groups                           F(   1,  14938) =       1.92
+                                                  Prob > F        =     0.1660
+                                                  R-squared       =     0.9462
+                                                  Adj R-squared   =     0.9282
+                                                  Within R-sq.    =     0.0001
+                                                  Root MSE        =     0.8889
+
+------------------------------------------------------------------------------
+             |               Robust
+    ln_trade | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  volatility |   -1.82253   1.315723    -1.39   0.166    -4.401508    .7564484
+       _cons |   11.19456   .0436213   256.63   0.000     11.10905    11.28006
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-------------------------------------------------------+
+   Absorbed FE | Categories  - Redundant  = Num. Coefs |
+---------------+---------------------------------------|
+       pair_id |       942           0         942     |
+ exporter_year |       115           5         110     |
+ importer_year |      4113         190        3923    ?|
+-------------------------------------------------------+
+? = number of redundant parameters may be higher
+
+. estimates store ols_main
+
+. 
+. * Note observation counts for table footnote
+. count if !missing(volatility) & !missing(trade)
+  19,926
+
+. local n_ppml = r(N)
+
+. count if !missing(volatility) & !missing(ln_trade)
+  19,926
+
+. local n_ols = r(N)
+
+. local n_zeros_dropped = `n_ppml' - `n_ols'
+
+. di "Zeros dropped by log-OLS: " `n_zeros_dropped'
+Zeros dropped by log-OLS: 0
+
+. 
+. * Column 3: LPM — extensive margin
+. * Note: trade_dummy is perfectly explained by pair fixed effects.
+. * No within-pair switching in trade participation observed in panel.
+. * LPM is infeasible with this panel structure — documented here.
+. reghdfe trade_dummy volatility, ///
+>     absorb(pair_id exporter_year importer_year) vce(robust)
+(dropped 12 singleton observations)
+(MWFE estimator converged in 9 iterations)
+warning: dependent variable trade_dummy is likely perfectly explained by the fix
+> ed effects (tol = 1.0e-09)
+warning: missing F statistic; dropped variables due to collinearity or too few c
+> lusters
+
+HDFE Linear regression                            Number of obs   =     19,914
+Absorbing 3 HDFE groups                           F(   1,  14938) =          .
+                                                  Prob > F        =          .
+                                                  Root MSE        =     0.0000
+
+------------------------------------------------------------------------------
+             |               Robust
+ trade_dummy | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  volatility |          0  (omitted)
+       _cons |          1          .        .       .            .           .
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-------------------------------------------------------+
+   Absorbed FE | Categories  - Redundant  = Num. Coefs |
+---------------+---------------------------------------|
+       pair_id |       942           0         942     |
+ exporter_year |       115           5         110     |
+ importer_year |      4113         190        3923    ?|
+-------------------------------------------------------+
+? = number of redundant parameters may be higher
+
+. * Result: volatility omitted due to perfect collinearity with FEs
+. * Reported in table notes rather than as a separate column.
+. 
+. * ── Section 2: BRICS Heterogeneity ──────────────────────────
+. 
+. * Interact volatility with BRICS exporter dummies
+. * ZAF is the omitted base category
+. * Coefficient on volatility = ZAF effect
+. * Coefficients on vol_xxx = deviation from ZAF for each country
+. 
+. gen vol_bra = volatility * (exporter == "BRA")
+(4,014 missing values generated)
+
+. gen vol_chn = volatility * (exporter == "CHN")
+(4,014 missing values generated)
+
+. gen vol_ind = volatility * (exporter == "IND")
+(4,014 missing values generated)
+
+. gen vol_rus = volatility * (exporter == "RUS")
+(4,014 missing values generated)
+
+. 
+. ppmlhdfe trade vol_bra vol_chn vol_ind vol_rus volatility, ///
+>     absorb(pair_id exporter_year importer_year) vce(robust)
+(dropped 12 observations that are either singletons or separated by a fixed effe
+> ct)
+warning: dependent variable takes very low values after standardizing (5.8282e-1
+> 1)
+Iteration 1:   deviance = 1.4078e+10  eps = .         iters = 6    tol = 1.0e-04
+>   min(eta) =  -4.40  P   
+Iteration 2:   deviance = 4.1764e+09  eps = 2.37e+00  iters = 5    tol = 1.0e-04
+>   min(eta) =  -5.67      
+Iteration 3:   deviance = 2.0632e+09  eps = 1.02e+00  iters = 5    tol = 1.0e-04
+>   min(eta) =  -7.37      
+Iteration 4:   deviance = 1.4948e+09  eps = 3.80e-01  iters = 4    tol = 1.0e-04
+>   min(eta) =  -8.90      
+Iteration 5:   deviance = 1.3485e+09  eps = 1.09e-01  iters = 4    tol = 1.0e-04
+>   min(eta) = -11.01      
+Iteration 6:   deviance = 1.3130e+09  eps = 2.70e-02  iters = 4    tol = 1.0e-04
+>   min(eta) = -13.52      
+Iteration 7:   deviance = 1.3048e+09  eps = 6.23e-03  iters = 4    tol = 1.0e-04
+>   min(eta) = -13.86      
+Iteration 8:   deviance = 1.3031e+09  eps = 1.34e-03  iters = 4    tol = 1.0e-04
+>   min(eta) = -14.15      
+Iteration 9:   deviance = 1.3028e+09  eps = 2.65e-04  iters = 4    tol = 1.0e-04
+>   min(eta) = -14.85      
+Iteration 10:  deviance = 1.3027e+09  eps = 4.57e-05  iters = 3    tol = 1.0e-04
+>   min(eta) = -15.68      
+Iteration 11:  deviance = 1.3027e+09  eps = 6.29e-06  iters = 5    tol = 1.0e-05
+>   min(eta) = -16.18      
+Iteration 12:  deviance = 1.3027e+09  eps = 5.49e-07  iters = 5    tol = 1.0e-06
+>   min(eta) = -16.34   S  
+Iteration 13:  deviance = 1.3027e+09  eps = 1.63e-08  iters = 5    tol = 1.0e-07
+>   min(eta) = -16.36   S  
+Iteration 14:  deviance = 1.3027e+09  eps = 7.34e-11  iters = 5    tol = 1.0e-08
+>   min(eta) = -16.36   S  
+Iteration 15:  deviance = 1.3027e+09  eps = 1.35e-14  iters = 2    tol = 1.0e-09
+>   min(eta) = -16.36   S O
+--------------------------------------------------------------------------------
+> ----------------------------
+(legend: p: exact partial-out   s: exact solver   h: step-halving   o: epsilon b
+> elow tolerance)
+Converged in 15 iterations and 65 HDFE sub-iterations (tol = 1.0e-08)
+
+HDFE PPML regression                              No. of obs      =     19,914
+Absorbing 3 HDFE groups                           Residual df     =     14,934
+                                                  Wald chi2(5)    =       6.05
+Deviance             =   1302687151               Prob > chi2     =     0.3016
+Log pseudolikelihood = -651472779.8               Pseudo R2       =     0.9951
+------------------------------------------------------------------------------
+             |               Robust
+       trade | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     vol_bra |  -.7811958   .6796981    -1.15   0.250     -2.11338     .550988
+     vol_chn |  -.0568539   .0721178    -0.79   0.430    -.1982022    .0844944
+     vol_ind |  -.0455896   .1033396    -0.44   0.659    -.2481315    .1569524
+     vol_rus |   .4513932   .2161266     2.09   0.037     .0277928    .8749936
+  volatility |   .4933759   .8413254     0.59   0.558    -1.155592    2.142343
+       _cons |   17.32376   .0175701   985.98   0.000     17.28933     17.3582
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-------------------------------------------------------+
+   Absorbed FE | Categories  - Redundant  = Num. Coefs |
+---------------+---------------------------------------|
+       pair_id |       942           0         942     |
+ exporter_year |       115           5         110     |
+ importer_year |      4113         190        3923    ?|
+-------------------------------------------------------+
+? = number of redundant parameters may be higher
+
+. estimates store ppml_het
+
+. 
+. * ── Section 3: Russia Sensitivity Check ─────────────────────
+. 
+. * Repeat primary specifications excluding Russia post-Feb 2022
+. * russia_post22 == 1 flags 197 observations where rouble volatility
+. * reflects CBR capital controls, not market exchange rate dynamics.
+. 
+. ppmlhdfe trade volatility if russia_post22 == 0, ///
+>     absorb(pair_id exporter_year importer_year) vce(robust)
+(dropped 12 observations that are either singletons or separated by a fixed effe
+> ct)
+warning: dependent variable takes very low values after standardizing (5.8161e-1
+> 1)
+Iteration 1:   deviance = 1.3852e+10  eps = .         iters = 5    tol = 1.0e-04
+>   min(eta) =  -4.41  P   
+Iteration 2:   deviance = 4.0341e+09  eps = 2.43e+00  iters = 5    tol = 1.0e-04
+>   min(eta) =  -5.67      
+Iteration 3:   deviance = 1.9355e+09  eps = 1.08e+00  iters = 5    tol = 1.0e-04
+>   min(eta) =  -7.36      
+Iteration 4:   deviance = 1.3709e+09  eps = 4.12e-01  iters = 4    tol = 1.0e-04
+>   min(eta) =  -8.89      
+Iteration 5:   deviance = 1.2259e+09  eps = 1.18e-01  iters = 4    tol = 1.0e-04
+>   min(eta) = -10.18      
+Iteration 6:   deviance = 1.1908e+09  eps = 2.95e-02  iters = 4    tol = 1.0e-04
+>   min(eta) = -11.73      
+Iteration 7:   deviance = 1.1827e+09  eps = 6.82e-03  iters = 3    tol = 1.0e-04
+>   min(eta) = -13.08      
+Iteration 8:   deviance = 1.1810e+09  eps = 1.47e-03  iters = 4    tol = 1.0e-04
+>   min(eta) = -14.16      
+Iteration 9:   deviance = 1.1806e+09  eps = 2.89e-04  iters = 4    tol = 1.0e-04
+>   min(eta) = -14.88      
+Iteration 10:  deviance = 1.1806e+09  eps = 4.97e-05  iters = 3    tol = 1.0e-04
+>   min(eta) = -15.70      
+Iteration 11:  deviance = 1.1805e+09  eps = 6.78e-06  iters = 5    tol = 1.0e-05
+>   min(eta) = -16.18      
+Iteration 12:  deviance = 1.1805e+09  eps = 5.87e-07  iters = 5    tol = 1.0e-06
+>   min(eta) = -16.33   S  
+Iteration 13:  deviance = 1.1805e+09  eps = 1.73e-08  iters = 5    tol = 1.0e-07
+>   min(eta) = -16.34   S  
+Iteration 14:  deviance = 1.1805e+09  eps = 7.97e-11  iters = 5    tol = 1.0e-08
+>   min(eta) = -16.34   S  
+Iteration 15:  deviance = 1.1805e+09  eps = 1.45e-14  iters = 2    tol = 1.0e-09
+>   min(eta) = -16.34   S O
+--------------------------------------------------------------------------------
+> ----------------------------
+(legend: p: exact partial-out   s: exact solver   h: step-halving   o: epsilon b
+> elow tolerance)
+Converged in 15 iterations and 63 HDFE sub-iterations (tol = 1.0e-08)
+
+HDFE PPML regression                              No. of obs      =     19,777
+Absorbing 3 HDFE groups                           Residual df     =     14,802
+                                                  Wald chi2(1)    =       0.42
+Deviance             =   1180547674               Prob > chi2     =     0.5165
+Log pseudolikelihood = -590402158.7               Pseudo R2       =     0.9955
+------------------------------------------------------------------------------
+             |               Robust
+       trade | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  volatility |  -.5457344   .8412273    -0.65   0.517     -2.19451    1.103041
+       _cons |    17.3492   .0168558  1029.27   0.000     17.31616    17.38223
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-------------------------------------------------------+
+   Absorbed FE | Categories  - Redundant  = Num. Coefs |
+---------------+---------------------------------------|
+       pair_id |       942           0         942     |
+ exporter_year |       114           5         109     |
+ importer_year |      4113         190        3923    ?|
+-------------------------------------------------------+
+? = number of redundant parameters may be higher
+
+. estimates store ppml_norus
+
+. 
+. reghdfe ln_trade volatility if russia_post22 == 0, ///
+>     absorb(pair_id exporter_year importer_year) vce(robust)
+(dropped 12 singleton observations)
+(MWFE estimator converged in 9 iterations)
+
+HDFE Linear regression                            Number of obs   =     19,777
+Absorbing 3 HDFE groups                           F(   1,  14802) =       1.21
+                                                  Prob > F        =     0.2721
+                                                  R-squared       =     0.9472
+                                                  Adj R-squared   =     0.9294
+                                                  Within R-sq.    =     0.0001
+                                                  Root MSE        =     0.8797
+
+------------------------------------------------------------------------------
+             |               Robust
+    ln_trade | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  volatility |  -1.461443   1.330596    -1.10   0.272    -4.069577    1.146692
+       _cons |   11.18231   .0431216   259.32   0.000     11.09778    11.26683
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-------------------------------------------------------+
+   Absorbed FE | Categories  - Redundant  = Num. Coefs |
+---------------+---------------------------------------|
+       pair_id |       942           0         942     |
+ exporter_year |       114           5         109     |
+ importer_year |      4113         190        3923    ?|
+-------------------------------------------------------+
+? = number of redundant parameters may be higher
+
+. estimates store ols_norus
+
+. 
+. * ── Section 4: Export Results Table ─────────────────────────
+. 
+. * Primary results table — Columns 1 and 2
+. esttab ppml_main ols_main using "output/results_table.csv", ///
+>     replace csv ///
+>     keep(volatility) ///
+>     b(3) se(3) ///
+>     star(* 0.10 ** 0.05 *** 0.01) ///
+>     scalars("N Observations" "r2_p Pseudo R2" "r2 R-squared") ///
+>     title("Table 1: Exchange Rate Volatility and BRICS Export Margins") ///
+>     mtitles("(1) PPML" "(2) Log-OLS") ///
+>     addnotes("Three-way fixed effects: pair, exporter×year, importer×year." //
+> /
+>              "Robust standard errors in parentheses." ///
+>              "* p<0.10, ** p<0.05, *** p<0.01." ///
+>              "Column (2) restricted to positive trade flows (ln_trade non-miss
+> ing)." ///
+>              "LPM (Column 3) infeasible: trade_dummy perfectly collinear with 
+> pair FE." ///
+>              "No within-pair switching in trade participation observed in 23-y
+> ear panel.")
+(file output/results_table.csv not found)
+(output written to output/results_table.csv)
+
+. 
+. * Sensitivity check table
+. esttab ppml_norus ols_norus using "output/sensitivity_table.csv", ///
+>     replace csv ///
+>     keep(volatility) ///
+>     b(3) se(3) ///
+>     star(* 0.10 ** 0.05 *** 0.01) ///
+>     scalars("N Observations" "r2_p Pseudo R2" "r2 R-squared") ///
+>     title("Table 2: Sensitivity — Excluding Russia Post-February 2022") ///
+>     mtitles("(1) PPML" "(2) Log-OLS") ///
+>     addnotes("Sample excludes Russia exporter observations from 2022 onwards (
+> N=197 dropped)." ///
+>              "Three-way fixed effects: pair, exporter×year, importer×year." //
+> /
+>              "Robust standard errors in parentheses.")
+(file output/sensitivity_table.csv not found)
+(output written to output/sensitivity_table.csv)
+
+. 
+. * Heterogeneity table
+. esttab ppml_het using "output/heterogeneity_table.csv", ///
+>     replace csv ///
+>     keep(vol_bra vol_chn vol_ind vol_rus volatility) ///
+>     b(3) se(3) ///
+>     star(* 0.10 ** 0.05 *** 0.01) ///
+>     title("Table 3: BRICS Heterogeneity — Country-Specific Volatility Effects"
+> ) ///
+>     mtitles("PPML") ///
+>     addnotes("Base category: ZAF (South Africa)." ///
+>              "Coefficient on volatility = ZAF effect." ///
+>              "Total country effect = volatility + vol_xxx." ///
+>              "Three-way fixed effects: pair, exporter×year, importer×year.")
+(file output/heterogeneity_table.csv not found)
+(output written to output/heterogeneity_table.csv)
+
+. 
+. di "Analysis complete. Results exported to output/."
+Analysis complete. Results exported to output/.
+
+. 
+. log close
+      name:  <unnamed>
+       log:  /Users/psat0501/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfol
+> io/02_exchange_rate_export_margins/log/03_analysis.log
+  log type:  text
+ closed on:   1 Jun 2026, 21:07:10
+--------------------------------------------------------------------------------

@@ -1,0 +1,20 @@
+="Table 1: Exchange Rate Volatility and BRICS Export Margins"
+
+="",="(1)",="(2)"
+="",="(1) PPML",="(2) Log-OLS"
+
+="volatility",="0.490",="-1.823"
+="",="(0.835)",="(1.316)"
+
+="N",="19914",="19914"
+="Pseudo R2",="0.995",=""
+="R-squared",="",="0.946"
+
+="Standard errors in parentheses"
+="Three-way fixed effects: pair, exporter×year, importer×year."
+="Robust standard errors in parentheses."
+="* p<0.10, ** p<0.05, *** p<0.01."
+="Column (2) restricted to positive trade flows (ln_trade non-missing)."
+="LPM (Column 3) infeasible: trade_dummy perfectly collinear with pair FE."
+="No within-pair switching in trade participation observed in 23-year panel."
+="* p<0.10, ** p<0.05, *** p<0.01"

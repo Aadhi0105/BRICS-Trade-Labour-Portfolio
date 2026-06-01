@@ -1,0 +1,28 @@
+="Table 3: BRICS Heterogeneity — Country-Specific Volatility Effects"
+
+="",="(1)"
+="",="PPML"
+
+="vol_bra",="-0.781"
+="",="(0.680)"
+
+="vol_chn",="-0.057"
+="",="(0.072)"
+
+="vol_ind",="-0.046"
+="",="(0.103)"
+
+="vol_rus",="0.451**"
+="",="(0.216)"
+
+="volatility",="0.493"
+="",="(0.841)"
+
+="N",="19914"
+
+="Standard errors in parentheses"
+="Base category: ZAF (South Africa)."
+="Coefficient on volatility = ZAF effect."
+="Total country effect = volatility + vol_xxx."
+="Three-way fixed effects: pair, exporter×year, importer×year."
+="* p<0.10, ** p<0.05, *** p<0.01"
