@@ -1,0 +1,91 @@
+shric,shric_desc
+1.0,Forestry and logging
+2.0,Fishing and aquaculture
+3.0,Oil and gas production and services
+4.0,Mining and quarrying
+5.0,Processing of meat
+6.0,Manufacture of vegetable and animal oil and fats
+7.0,Dairy
+8.0,Grain milling and grain products
+9.0,Animal feed
+10.0,Food product manufacturing
+11.0,Beverage manufacturing
+12.0,Tobacco products
+13.0,Manufacture of other textiles
+14.0,Manufacturing of clothing
+15.0,Leather manufacturing
+16.0,Footwear manufacturing
+17.0,Saw milling
+18.0,Printing and related services
+19.0,Coke oven products
+20.0,Manufacture of refined petroleum products
+21.0,Pharmaceuticals
+22.0,Chemical products
+23.0,Manufacture of man-made fibers
+24.0,Stone and cement (non-metallic minerals)
+25.0,Iron and steel manufacture
+26.0,Manufacture of precious and non-ferrous metals
+27.0,Casting of metals
+28.0,Manufacture of domestic appliances
+29.0,Manufacture of consumer electronics
+30.0,Manufacture of transport equipment
+31.0,Manufacture of furniture
+32.0,Manufacture of sporting equipment
+33.0,Electric power generation and distribution
+34.0,"Gas manufacture and distribution, steam and A/C supply"
+35.0,"Water collection, treatment, supply"
+36.0,Construction and civil engineering
+37.0,Building completion and finishing
+38.0,Construction installation and rentals
+39.0,Maintenance and repair of motor vehicles
+40.0,Sale and of motor vehicles (and motorcycle repair)
+41.0,Retail of auto fuel
+42.0,Wholesale on fee or contract basis
+43.0,Wholesale agricultural trade
+44.0,"Wholesale of food, beverages, and tobacco"
+45.0,Wholesale trade of household and other goods
+46.0,Other wholesale and lottery ticket sales
+47.0,"Retail of food, beverages, and tobacco"
+48.0,Retail in specialized stores
+49.0,Retail in non-specialized stores
+50.0,"Repair of personal goods, finishing of textiles, preparation of textile fiber"
+51.0,Hotels and accomodations
+52.0,Restaurants and bars
+53.0,Railway transport
+54.0,Other land transport
+55.0,Pipline transport
+56.0,Coastal and sea water transport
+57.0,Inland water transport
+58.0,Air transport
+59.0,Storage and warehousing
+60.0,Travel agency and tours
+61.0,Support activities for transport
+62.0,Postal activities
+63.0,Courier activities
+64.0,Telecoms
+65.0,Monetary intermediation
+66.0,Insurance
+67.0,Financial services
+68.0,Auxiliary insurance and pension services
+69.0,Real estate
+70.0,Renting of machinery
+71.0,Rental of personal and household goods
+72.0,"Manufacturing of equipment and goods, some repair. Ships, machinery, instruments, electronics, paper, wood products, etc."
+73.0,"Data processing, programming, consulting, and software"
+74.0,Research and scientific services
+75.0,Legal activities
+76.0,Accounting and tax
+77.0,Technical testing
+78.0,Advertising
+79.0,Recruitment and HR
+80.0,Education
+81.0,Health and hospitals
+82.0,Veterinary activities
+83.0,"Social work, residential care, and welfare"
+84.0,"Sanitation, disposal, and recycling"
+85.0,"Unions, community services and professional organizations"
+86.0,Creative arts and entertainment
+87.0,"Business, management, call centers, architects, business cleaning, and professional services"
+88.0,Libraries and museums
+89.0,"Broadcasting, publishing, gambling, and sports"
+90.0,Personal services n.e.c
