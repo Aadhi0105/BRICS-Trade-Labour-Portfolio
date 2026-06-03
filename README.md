@@ -10,7 +10,7 @@ Each project uses a distinct analytical tool — Python, STATA, R, web scraping,
 
 | # | Project | Tool | Theme | Status |
 |---|---------|------|-------|--------|
-| 1 | [The China Shock in Emerging Markets](./01_china_shock_emerging_markets/) | Python | Replicating & extending Autor, Dorn & Hanson (2013) to an emerging market context | 🔄 In Progress |
+| 1 | [The China Shock in Emerging Markets](./01_china_shock_emerging_markets/) | Python | Replicating & extending Autor, Dorn & Hanson (2013) to an emerging market context | ✅ Complete |
 | 2 | [Exchange Rate Volatility and Export Margins](./02_exchange_rate_export_margins/) | STATA | Panel gravity evidence from BRICS on trade flow responses to currency volatility | ✅ Complete |
 | 3 | [Labour Market Polarisation Across Indian Districts](./03_labour_polarisation_india/) | R | Distributional analysis of structural change and trade exposure using PLFS 2017-18 to 2023-24 | ✅ Complete |
 | 4 | [Scraping Central Bank Communications](./04_central_bank_scraper/) | Web Scraping | A structured dataset of 302 BRICS monetary policy statements (1996–2026) | ✅ Complete |
@@ -62,9 +62,9 @@ Projects 1, 3, and 6 form a connected empirical programme on Indian districts. P
 
 ## Project 1 — The China Shock in Emerging Markets
 
-**Status: 🔄 In Progress — Data Assembly**
+**Status: ✅ Complete — All 3 Notebooks**
 
-Three-notebook Python analysis applying the Autor, Dorn and Hanson (2013, AER) shift-share identification strategy to Indian districts. This is the culminating project of the portfolio and the identification centrepiece of the three-project Indian district programme (Projects 1, 3, 6). Projects 3 and 6 built the data infrastructure — district-level labour market outcomes and baseline employment shares respectively. Project 1 is where those inputs are assembled into a causal research design.
+Three-notebook Python analysis applying the Autor, Dorn and Hanson (2013, AER) shift-share identification strategy to Indian districts. This is the culminating project of the portfolio and the identification centrepiece of the three-project Indian district programme (Projects 1, 3, 6). Projects 3 and 6 built the data infrastructure — district-level labour market outcomes and baseline employment shares respectively. Project 1 assembles those inputs into a causal research design and estimates the effect of Chinese import competition on Indian district labour markets over 2017–2022.
 
 ### Research Question
 
@@ -80,43 +80,75 @@ The solution is a Bartik shift-share instrument with two components. The **share
 Z_it = Σⱼ (L_ij,2005 / L_i,2005) · (ΔM_other,jt / L_j,2005)
 ```
 
-The twelve-year gap between the 2005 baseline shares and the 2017 outcome period is a deliberate design choice following Goldsmith-Pinkham, Sorkin and Swift (2020): more pre-determined shares are less likely to be correlated with contemporaneous shocks. Standard errors are clustered at the industry level following Adao, Kolesár and Morales (2019) — the level at which the identifying variation (the shifts) operates.
+The twelve-year gap between the 2005 baseline shares and the 2017 outcome period is a deliberate design choice following Goldsmith-Pinkham, Sorkin and Swift (2020): more pre-determined shares are less likely to be correlated with contemporaneous shocks. Standard errors clustered at the district level in primary specifications.
 
 ### Data Pipeline
 
-**Pre-notebook R steps (complete):** The PLFS-Census 2011 district crosswalk (`plfs_census2011_crosswalk.csv`) was constructed by mapping PLFS state-district codes to Census 2011 district names. PLFS assigns district codes as sequential integers in alphabetical order of Census 2011 district names within each state — verified empirically against Tamil Nadu (31 districts, code 14 = Namakkal confirmed absent from sample), Uttar Pradesh (61 of 75 districts sampled), and Madhya Pradesh (45 of 51 districts sampled). The crosswalk covers 715 districts with 100% match rate for the 2017-18 to 2022-23 analysis rounds. Wage aggregation and outcome panel collapse from Project 3 RDS files are the remaining pre-notebook steps.
+**Pre-notebook R steps (complete):** The PLFS-Census 2011 district crosswalk (`plfs_census2011_crosswalk.csv`) maps 715 PLFS district codes to Census 2011 district names with 100% match rate for the analysis rounds. Wage panel (`plfs_wage_panel.csv`) aggregated from raw PLFS DTA files across six rounds. Outcomes panel (`plfs_outcomes_panel.csv`) collapsed from Project 3 RDS files.
 
-**notebook_01_data_assembly.ipynb:** Loads SHRUG EC 2005 district × industry employment matrix from Project 6. Downloads and cleans Chinese export data from BACI by HS industry for comparison countries and India. Applies HS-to-NIC 2004 concordance (every aggregation decision documented). Loads PLFS district-round outcomes from Project 3. Constructs shift-share instrument and actual import penetration measure. Merges all sources on harmonised 2011 district boundaries. Quality checks throughout.
+**notebook_01_data_assembly.ipynb:** Constructs the shift-share instrument from SHRUG EC 2005 district × industry employment (28 manufacturing SHRIC codes) and CEPII BACI Chinese export data (comparison countries and India, 2005–2022). Builds the HS6-to-SHRIC concordance via WITS HS-ISIC mapping. Assembles the final analysis dataset: 3,675 observations, 617 districts, 6 PLFS rounds.
 
-**notebook_02_descriptive_analysis.ipynb:** Maps predicted import exposure across Indian districts using geopandas, inheriting the spatial infrastructure from Project 6. Maps labour market outcomes from Project 3 alongside exposure. Documents the industry composition of most- and least-exposed districts. Produces binscatter plots of the raw instrument-outcome relationship. Summary statistics table formatted in working-paper style.
+**notebook_02_descriptive_analysis.ipynb:** Geographic maps of instrument and outcomes across 591 Indian districts. Industry composition analysis by instrument quartile. Binscatter plots of raw instrument-outcome correlations. Time series of mean instrument and outcomes by year. Working-paper summary statistics table.
 
-**notebook_03_regression_analysis.ipynb:** First stage diagnostics (Kleibergen-Paap F-statistic, partial R², first-stage scatter). OLS baseline reported with endogeneity caveat. IV primary results for non-agricultural employment share, log wages, and informality. Skill-group heterogeneity connecting to Project 3 polarisation findings. Trade infrastructure heterogeneity interacting with port, SEZ, and corridor proximity from Project 6. Robustness checks: alternative comparison country sets, alternative clustering, COVID round exclusion, alternative baseline year.
+**notebook_03_regression_analysis.ipynb:** First stage diagnostics, OLS baseline, IV primary results, alternative specifications, and robustness checks.
 
 ### Panel Structure
 
 | Dimension | Value |
 |-----------|-------|
 | Unit of observation | District × PLFS round |
-| Districts (balanced panel) | 640 |
+| Districts in analysis | 617 |
 | PLFS rounds | 6 (2017-18 to 2022-23) |
-| Baseline year for instrument shares | 2005 Economic Census |
+| Observations | 3,675 |
+| Baseline year for instrument shares | 2005 Economic Census (SHRUG) |
+| Manufacturing SHRIC codes | 28 |
 | Comparison countries for shifts | 5 (USA, DEU, JPN, AUS, CAN) |
-| Primary regression N | ~3,840 |
+| Regression weights | District baseline employment (2005 EC) |
 
 ### Key Findings
 
-*(To be completed after notebook_03_regression_analysis.ipynb)*
+**First stage (strong instrument):**
+
+| Diagnostic | Value | Threshold | Status |
+|---|---|---|---|
+| Coefficient on Z | +0.125 | Positive required | ✓ |
+| t-statistic | 7.32 | >3.29 (p<0.001) | ✓ |
+| KP F-statistic | ~53.5 | >10 (Stock-Yogo) | ✓ Strong |
+| Partial R² | 0.360 | Meaningful | ✓ |
+
+**Primary IV results (2SLS, state + year FEs, weighted by baseline employment):**
+
+| Outcome | OLS | IV | SE | p |
+|---|---|---|---|---|
+| Non-agri employment share | −0.015 | +0.051 | 0.056 | 0.364 |
+| Log weekly wage (rural) | — | −0.220 | 0.168 | 0.191 |
+| Middle-skill share | — | +0.023 | 0.055 | 0.680 |
+
+**Null result — honest interpretation:** The shift-share IV finds no statistically significant effect of Chinese import competition on Indian district labour markets over 2017-2022. The instrument is strong (F≈53.5) and the null is robust across alternative specifications. Within-state instrument variance is 38% of total — state fixed effects absorb 62% of identifying variation. Three explanations: (1) insufficient within-state variation after state FEs; (2) 5-year PLFS window too short for reallocation effects (ADH use 10 years); (3) India's higher informality limits detectability of formal employment effects. The wage point estimate (−0.220) is directionally consistent with ADH but does not survive conventional significance thresholds.
+
+**Descriptive findings:**
+- High-exposure districts geographically dispersed across Gujarat, Rajasthan, Maharashtra, UP/MP — good for within-state identification
+- High-exposure districts more concentrated in machinery, chemicals, textiles, iron/steel; low-exposure in grain milling, tobacco/beedi, saw milling
+- Instrument has substantial time-series variation (2019 trade war trough, 2021 post-COVID peak); outcomes stable over time
 
 ### Outputs
 
 | File | Description |
 |---|---|
-| `data/plfs_census2011_crosswalk.csv` | PLFS code → Census 2011 district name (715 districts, complete) |
-| `data/analysis_dataset.csv` | Final merged analysis dataset — district × round, instrument + outcomes |
+| `data/analysis_dataset.csv` | Final merged dataset — 3,675 obs, 617 districts, 18 columns |
+| `data/plfs_census2011_crosswalk.csv` | PLFS code → Census 2011 district name (715 districts) |
+| `data/summary_statistics.csv` | Working-paper summary statistics table |
+| `data/hs6_shric_crosswalk.csv` | HS6 → SHRIC industry concordance (4,138 codes, 28 SHRICs) |
+| `data/shrug_ec05_baseline_shares.csv` | District baseline industry shares (628 districts, 28 SHRICs) |
+| `figures/fig01_geographic_distribution.png` | Four-panel map: instrument, non-agri share, wages, port distance |
+| `figures/fig02_industry_composition.png` | SHRIC shares by instrument quartile |
+| `figures/fig03_binscatter.png` | Raw instrument-outcome correlations |
+| `figures/fig04_time_series.png` | Mean instrument and outcomes by year |
+| `figures/fig05_first_stage.png` | First-stage scatter: instrument vs actual import penetration |
+| `figures/fig06_main_results.png` | OLS vs IV coefficient plot with 95% CIs |
 | `notebook_01_data_assembly.ipynb` | Data assembly and instrument construction |
-| `notebook_02_descriptive_analysis.ipynb` | Maps, binscatters, summary statistics |
-| `notebook_03_regression_analysis.ipynb` | OLS, IV, heterogeneity, robustness |
-| `Project1_Documentation.docx` | Full session-by-session documentation |
+| `notebook_02_descriptive_analysis.ipynb` | Descriptive analysis |
+| `notebook_03_regression_analysis.ipynb` | Regression analysis |
 
 ---
 
@@ -152,20 +184,9 @@ The primary specification is PPML with three-way fixed effects — pair (`φ_ij`
 | (2) Log-OLS — full sample | -1.823 | 1.316 | 0.166 | 19,914 |
 | (3) LPM | — | — | — | Infeasible |
 
-The Pseudo R² of 0.9951 indicates the three-way FE absorb almost all variation in trade — the effective within-pair identifying variation for volatility is narrow with five exporters and 23 years.
+**Russia outlier.** Dropping post-sanctions Russia flips PPML to −0.546 (p=0.517) — negative, directionally consistent, still insignificant.
 
-**Russia outlier.** The positive PPML sign is driven by Russia post-2022. Dropping the 197 post-sanctions Russia observations flips the PPML coefficient to −0.546 (p = 0.517) — negative and directionally consistent with theory, but still insignificant:
-
-| Specification | Full sample | Excl. Russia 2022+ |
-|---|---|---|
-| PPML | +0.490 | -0.546 |
-| Log-OLS | -1.823 | -1.461 |
-
-**BRICS heterogeneity.** The interaction specification recovers country-specific effects. Russia's interaction (vol_rus) is the only significant coefficient (+0.451, p = 0.037), reflecting the sanctions endogeneity problem — extreme volatility and trade redirection toward non-sanctioning partners are both consequences of the same shock. Brazil, China, and India all show the expected negative sign, consistent with regime-specific predictions.
-
-**Extensive margin — LPM infeasible.** The 639 zero-trade observations are concentrated in pairs that never trade across the full 23-year panel. Pair fixed effects perfectly predict `trade_dummy` for these pairs, leaving no within-pair variation for volatility to explain.
-
-**Honest interpretation.** The null result is consistent with the aggregate gravity literature (Tenreyro 2007; Head & Mayer 2014) and reflects the demanding identification requirement of three-way fixed effects with a small exporter panel. The direction of the estimated effect is consistently negative once the Russia 2022 outlier is accounted for.
+**Honest interpretation.** Null consistent with aggregate gravity literature. Direction consistently negative once Russia 2022 outlier removed.
 
 ### Outputs
 
@@ -187,47 +208,17 @@ The Pseudo R² of 0.9951 indicates the three-way FE absorb almost all variation 
 
 **Status: ✅ Complete — All 6 Notebooks**
 
-Six-notebook R analysis pipeline examining structural change in Indian labour markets across 640 districts using seven rounds of PLFS (2017-18 to 2023-24). The project connects directly to Project 6: the district-level trade exposure panel from Project 6 is merged into the regression notebook at 96% coverage. Project 3 also provides the labour market outcome panel consumed by Project 1's shift-share IV estimation.
+Six-notebook R analysis pipeline examining structural change in Indian labour markets across 640 districts using seven rounds of PLFS (2017-18 to 2023-24). Project 3 also provides the labour market outcome panel consumed by Project 1's shift-share IV estimation.
 
-### Research Questions
-How do employment structures vary across Indian districts, how do they differ by gender and sector, and does proximity to trade infrastructure correlate with non-agricultural employment within states?
-
-### Data Pipeline
-
-The PLFS is distributed by MOSPI in a proprietary Nesstar binary format for most rounds. Five rounds (2017-18, 2020-21, 2021-22, 2022-23, 2023-24) were converted from Nesstar binary to Stata using the `nesstar-converter` Python package (v1.0.3, requires Python >= 3.10). Two rounds (2018-19, 2019-20) were available as direct Stata downloads. All 14 person-level files (7 urban, 7 rural) were harmonised in R using explicit variable renaming crosswalks resolving two naming conventions (`_per_fv`/`_per_rv` for direct downloads vs `_perv1`/`_perrv` for converted files).
-
-### Key Methodological Finding — NCO Coding Break
-
-A systematic occupation coding break occurs in PLFS between 2020-21 and 2021-22. NCO code 121 (Business Services Managers) accounts for 36-40% of rural employed workers and 13-17% of urban employed workers in rounds 2017-18 through 2020-21, falling to under 12% from 2021-22 onwards following a MOSPI enumerator guidance revision. This makes the three-way skill classification (high: NCO 1-3; middle: NCO 4,5,7,8; low: NCO 6,9) non-comparable across the revision boundary. All primary analysis uses the agricultural versus non-agricultural binary classification (agricultural = NCO groups 6 and 9), which is internally consistent across all seven rounds.
-
-A related coding anomaly affects urban areas throughout: NCO code 611 (Market Gardeners) accounts for approximately 42% of urban employed workers, producing an urban agricultural share of ~62% — the inverse of economic reality. Both anomalies reflect NCO 2015 coding quality limitations that are documented explicitly rather than overlooked.
-
-### Notebook 1 — Data Loading and Harmonisation
-Resolves three naming inconsistencies across rounds, applies an employment status filter retaining 1,015,760 employed workers from 6.3 million raw observations, applies skill classification, and saves `plfs_clean.rds`. The 2017-18 urban sex variable has 49.8% missing values due to the rotating panel visit structure — documented and excluded from gender analysis.
-
-### Notebook 2 — District-Level Aggregation
-Constructs the district-level panel with employment shares by skill group and by agricultural/non-agricultural classification, separately for urban and rural sectors and by sex. Applies a balanced panel filter (districts present in all seven rounds) and minimum cell size threshold (emp_n >= 25). Saves `plfs_skill_panel.rds` and `plfs_agri_panel.rds`.
-
-### Notebook 3 — Polarisation Analysis
-National skill share trends confirm the NCO coding break dominates apparent polarisation signals. The low-skill share (NCO groups 6 and 9) is the only internally consistent component — rural: 14-15%, urban: 61-63% throughout. The agricultural/non-agricultural series is flat nationally, with substantial cross-district variation (SD ~13% rural, ~20% urban) that is stable across rounds. The COVID-19 shock produces no aggregate structural shift in either sector, though district-level changes have a standard deviation of 13-14 percentage points — heterogeneous but offsetting.
-
-### Notebook 4 — Gender Decomposition
-Within employed women, the non-agricultural share falls from 81% to 76% in rural areas and 31% to 24% in urban areas between 2017-18 and 2023-24, while male shares are stable or rising. The urban gender gap widens from 11 to 19 percentage points over the panel. Female district-level estimates are available for only 15-20% as many districts as male, reflecting low female LFPR — itself a substantive finding. The widening gap is consistent with the feminisation of agriculture documented in the Indian labour economics literature, though differential NCO coding bias cannot be excluded.
-
-### Notebook 5 — Urban-Rural Decomposition
-Urban and rural non-agricultural share distributions are almost entirely non-overlapping (rural peaks near 90%, urban near 25-45%). Within-district correlation between urban and rural non-agricultural shares is r = 0.255, indicating weak integration between the two sectors within the same geographic unit. The urban-rural gap varies from 4 percentage points (Delhi) to 62 points (Meghalaya), with southern states showing systematically smaller gaps than north-eastern and central Indian states.
-
-### Notebook 6 — Trade Exposure Regression
-Merges 616 of 640 districts (96.25% match rate) from the PLFS panel with the Project 6 trade exposure panel using the Census 2011 sequential censuscode. OLS regressions with state fixed effects and state-clustered standard errors:
+### Key Findings
 
 | Variable | Urban β | Urban p | Rural β | Rural p |
 |---|---|---|---|---|
 | Log distance to port | −0.031 | 0.025* | −0.033 | 0.002** |
 | Log distance to SEZ | −0.026 | 0.014* | +0.009 | 0.382 |
 | Any industrial corridor | −0.055 | 0.035* | −0.132 | <0.001*** |
-| Adj. R² | 0.636 | — | 0.261 | — |
 
-Port proximity is the most robust correlate — negative and significant in both sectors. Closer districts show higher non-agricultural employment shares within states, consistent with port access facilitating structural transformation.
+Port proximity is the most robust correlate of non-agricultural employment share within states.
 
 ### Outputs
 
@@ -236,8 +227,7 @@ Port proximity is the most robust correlate — negative and significant in both
 | `plfs_clean.rds` | Harmonised person-level dataset, 1,015,760 rows, 27 columns |
 | `plfs_skill_panel.rds` | District × round × sector × sex skill shares, 70,728 rows |
 | `plfs_agri_panel.rds` | District × round × sector × sex agri/non-agri shares, 50,091 rows |
-| `plfs_census2011_crosswalk.csv` | PLFS code → Census 2011 district name, 715 districts (used by Project 1) |
-| `notebooks/01_clean.html` through `06_regression.html` | Rendered R Markdown notebooks |
+| `plfs_census2011_crosswalk.csv` | PLFS code → Census 2011 district name, 715 districts |
 
 ---
 
@@ -245,16 +235,7 @@ Port proximity is the most robust correlate — negative and significant in both
 
 **Status: ✅ Complete**
 
-Scrapers built for SARB, RBI, CBR, and PBOC (via BIS). The RBI website blocks programmatic year-filtering — 57 historical statements (2016–2025) were manually downloaded as PDFs and extracted using PyMuPDF, then merged with 6 scraped statements (2025–2026). Final dataset: 302 statements from four central banks spanning 1996–2026.
-
-| Bank | Country | Statements | Coverage |
-|------|---------|------------|----------|
-| PBOC | China | 131 | 1996–2025 |
-| RBI | India | 63 | 2016–2026 |
-| SARB | South Africa | 57 | 2006–2026 |
-| CBR | Russia | 51 | 2018–2026 |
-
-Output: `04_central_bank_scraper/data/brics_mpc_statements_v2.csv`
+302 statements from PBOC (131), RBI (63), SARB (57), CBR (51) spanning 1996–2026.
 
 ---
 
@@ -262,26 +243,7 @@ Output: `04_central_bank_scraper/data/brics_mpc_statements_v2.csv`
 
 **Status: ✅ Complete — All 3 Notebooks**
 
-Three-notebook NLP pipeline on the 302-statement corpus.
-
-### Notebook 1 — Text Cleaning and Preprocessing
-Boilerplate stripping, SARB date repair, date parsing, spaCy lemmatisation and stopword removal. Output: `brics_mpc_cleaned.csv`
-
-### Notebook 2 — Sentiment Analysis
-**Layer 1 — Loughran-McDonald Dictionary (primary):** Net sentiment and uncertainty scores computed for all 302 statements.
-
-**Layer 2 — FinBERT robustness check:** Run on a stratified 40-statement sample. Spearman correlation with LM net scores: 0.441 (p=0.004). Both methods produce identical bank-level sentiment rankings.
-
-Key finding: post-2022 divergence between CBR (sharply more negative and uncertain) and PBOC (stable to improving) is the strongest event-driven signal in the dataset. Bank sentiment rankings — SARB ≈ CBR (most negative) > RBI > PBOC (most positive) — are consistent across both methods. The CBR sentiment collapse in 2022 aligns precisely with the rouble volatility spike documented in Project 2.
-
-Output: `brics_mpc_sentiment.csv`
-
-### Notebook 3 — LDA Topic Modelling
-Nine topics identified via coherence scoring (k=9, c_v=0.505). Near-perfect bank-topic segregation: CBR → Monetary Policy Decisions, SARB → Inflation & Growth Outlook, RBI → Liquidity & Rate Decisions, PBOC → Financial Reform & Capital Markets.
-
-Key finding: The **Global Economy & Currency** topic — characterised by vocabulary including crisis, currency, imbalance, trade, capital flows, and IMF — is assigned exclusively to PBOC and is the only PBOC topic with negative net sentiment (−0.008). When PBOC engages with international monetary dynamics, its tone turns negative — a signal consistent with China's exposure to trade fragmentation pressures.
-
-Outputs: `brics_mpc_final.csv`, `lda_visualisation.html`, `topic_sentiment_interaction.png`
+LM dictionary sentiment, FinBERT robustness, LDA topic modelling (k=9, coherence=0.505). Key finding: PBOC's Global Economy & Currency topic carries uniquely negative sentiment (−0.008).
 
 ---
 
@@ -289,34 +251,7 @@ Outputs: `brics_mpc_final.csv`, `lda_visualisation.html`, `topic_sentiment_inter
 
 **Status: ✅ Complete — All 4 Notebooks**
 
-Four-notebook geospatial pipeline documenting structural change across 640 Indian districts between 1990 and 2013, and examining the spatial correlation between trade infrastructure proximity and the pace of structural transformation.
-
-### Notebook 1 — Data Acquisition and Boundary Harmonisation
-Loaded Census 2011 district shapefiles (DataMeet, 640 districts, EPSG:4326) and SHRUG Economic Census and Population Census modules. All rounds harmonised to 2011 boundaries via shrid-level crosswalk.
-
-| Round | Districts Matched | Method |
-|-------|------------------|--------|
-| EC 1990 | 553 / 640 | shrid crosswalk to 2011 boundaries |
-| EC 1998 | 639 / 640 | shrid crosswalk (99.3% shrid match rate) |
-| EC 2005 | 636 / 640 | shrid crosswalk to 2011 boundaries |
-| EC 2013 | 640 / 640 | Direct merge on pc11_district_id |
-
-Output: `data/processed/districts_structural_change.gpkg` — 640 districts × 35 columns.
-
-### Notebook 2 — Structural Change Maps
-Key spatial finding: structural transformation in India was spatially concentrated and path-dependent. Coastal and urban districts led throughout. Manufacturing share declined across most districts even as total non-farm share rose, consistent with services-led premature deindustrialisation.
-
-### Notebook 3 — Trade Exposure Proxies and Spatial Analysis
-
-| Measure | Correlation with Non-Farm Share 2013 |
-|---------|--------------------------------------|
-| Distance to nearest major port (km) | r = −0.147, p < 0.001 |
-| Distance to nearest major SEZ (km) | r = −0.128, p = 0.001 |
-
-Output: `data/processed/districts_full_panel.gpkg` — 640 districts × 43 columns. Merged into Project 3 Notebook 6 at 96% coverage. The 2005 EC district × industry employment matrix extracted from this panel serves as the baseline shares input for Project 1's shift-share instrument.
-
-### Notebook 4 — Publication-Quality Visualisation
-Four publication-ready figures (PNG at 300 dpi + PDF) covering non-farm share evolution, manufacturing pathways, trade infrastructure proximity, and correlation scatter plots.
+640 Indian districts, 1990–2013. Port distance r=−0.147 with non-farm share 2013. Output: `districts_full_panel.gpkg` (640 districts × 43 columns) — baseline shares input for Project 1.
 
 ---
 
@@ -324,7 +259,7 @@ Four publication-ready figures (PNG at 300 dpi + PDF) covering non-farm share ev
 
 | Project | Status |
 |---------|--------|
-| 01 — China Shock in Emerging Markets (Python) | 🔄 In Progress — Data Assembly |
+| 01 — China Shock in Emerging Markets (Python) | ✅ Complete — All 3 Notebooks |
 | 02 — Exchange Rate Volatility and Export Margins (STATA) | ✅ Complete — 3 Do-Files |
 | 03 — Labour Market Polarisation Across Indian Districts (R) | ✅ Complete — All 6 Notebooks |
 | 04 — Scraping Central Bank Communications | ✅ Complete |
