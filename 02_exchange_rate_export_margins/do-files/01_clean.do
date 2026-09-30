@@ -9,7 +9,11 @@ clear all
 set more off
 capture log close
 
-cd "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/02_exchange_rate_export_margins"
+* Run from the repository root or this project directory.
+capture confirm file "do-files/01_clean.do"
+if _rc cd "02_exchange_rate_export_margins"
+capture mkdir "log"
+capture mkdir "output"
 
 log using "log/01_clean.log", replace text
 

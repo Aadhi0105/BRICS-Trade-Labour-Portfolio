@@ -1,0 +1,25 @@
+# Direct Python dependencies; historical exact versions were not locked.
+pandas
+numpy
+scipy
+statsmodels
+linearmodels
+matplotlib
+seaborn
+geopandas
+shapely
+pyproj
+mapclassify
+contextily
+requests
+beautifulsoup4
+selenium
+webdriver-manager
+PyMuPDF
+spacy
+gensim
+pyLDAvis
+transformers
+torch
+jupyterlab
+nbformat

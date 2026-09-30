@@ -3,8 +3,9 @@ import pandas as pd
 from pathlib import Path
 import re
 
-PDF_DIR = Path("data/rbi_pdfs")
-OUTPUT_CSV = Path("data/rbi_historical.csv")
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+PDF_DIR = DATA_DIR / "rbi_pdfs"
+OUTPUT_CSV = DATA_DIR / "rbi_historical.csv"
 
 def extract_text_from_pdf(pdf_path):
     """Extract full text from a PDF file using pymupdf."""

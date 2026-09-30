@@ -10,6 +10,17 @@ output:
     df_print: paged
 ---
 
+**Measurement note:** The legacy fields `agri_nonagri`, `nonagri_share`, and
+`plfs_agri_panel.rds` retain their names for compatibility. They describe an
+occupation-based proxy: NCO major groups 6 and 9 versus groups 1–5, 7 and 8,
+among employed workers with a classified occupation. Group 9 includes elementary
+occupations across industries; this is not an agricultural/non-agricultural
+industry split. The urban pipeline retains `ups_nic`, but the rural crosswalk
+does not retain a comparable NIC field. A harmonised NIC-based definition would
+require a raw-data audit and recomputation of Projects 3 and 1. Existing values
+and coefficients are preserved; they must be interpreted as occupation-group
+associations, not sectoral employment estimates.
+
 ## Overview
 
 This notebook tests the core research question: is there evidence of labour market polarisation — declining middle-skill employment shares — across Indian districts between 2017-18 and 2023-24? Using the district-level panel constructed in `02_aggregate.Rmd`, we examine national skill share trends, the district-level distribution of skill shares and how it shifts over time, and whether the pattern is consistent with the middle-skill hollowing predicted by the routine-biased technological change framework.
@@ -39,9 +50,9 @@ library(scales)
 We load both district panels and immediately apply two filters that will be maintained throughout the notebook: the balanced panel restriction and the minimum cell size threshold of 25 raw observations. A third filter excludes the 2017-18 urban sex data, which has 49.8% missing sex values due to the rotating panel visit structure documented in `01_clean.Rmd`.
 
 ```{r load-panels}
-skill <- readRDS("~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data/plfs_skill_panel.rds")
+skill <- readRDS("../../03_labour_polarisation_india/data/plfs_skill_panel.rds")
 
-agri <- readRDS("~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data/plfs_agri_panel.rds")
+agri <- readRDS("../../03_labour_polarisation_india/data/plfs_agri_panel.rds")
 
 # Minimum cell size threshold
 MIN_N <- 25
@@ -106,7 +117,7 @@ Second, the rural high-skill share rises from 41.7% in 2018 to 45.9% in 2020 and
 
 Third, the urban pattern is similar but less extreme: high skill rises modestly to 18.2% by 2020, then falls to 7.6% by 2024, while middle rises from 22.1% to 29.6%. The urban break between 2021 and 2022 is smaller than rural (high drops 2.4pp) but still present.
 
-The honest conclusion from the three-way classification is that we cannot cleanly identify polarisation from these national trends because the coding break contaminates the high-skill and middle-skill series from 2021-22 onwards. The reliable signal is the stability of low-skill shares. We now visualise these trends explicitly, marking the coding break, and then shift to the agri/non-agri panel as the primary analytical series.
+The honest conclusion from the three-way classification is that we cannot cleanly identify polarisation from these national trends because the coding break contaminates the high-skill and middle-skill series from 2021-22 onwards. The reliable signal is the stability of low-skill shares. We now visualise these trends explicitly, marking the coding break, and then shift to the NCO-6/9 versus other-occupation panel as the primary analytical series.
 
 ## Visualising National Trends
 
@@ -164,14 +175,14 @@ p_rural <- plot_national("rural", "Rural sector")
 
 The plot makes the analytical situation unambiguous. In the urban panel, the low-skill share (green) is flat throughout at 61-63% — a stable dominant category. Middle skill rises modestly from 22% to 30% entirely within the shaded post-coding-revision period, while high skill declines correspondingly. In the rural panel, the crossing of high and middle skill lines occurs precisely at the coding revision boundary. The pre-revision period (2018-2021) shows high skill around 42-46% and middle around 39-44%, while post-revision middle dominates at 48-61%. The low-skill rural line is flat at 14-15% throughout, confirming it as the most reliably measured category.
 
-The three-way classification cannot support claims about polarisation in this data — the apparent middle-skill rise is driven primarily by the coding revision reassigning high-skill workers to middle-skill categories, not by genuine labour market restructuring. We now examine the agri/non-agri series, which is immune to this problem.
+The three-way classification cannot support claims about polarisation in this data — the apparent middle-skill rise is driven primarily by the coding revision reassigning high-skill workers to middle-skill categories, not by genuine labour market restructuring. We now examine the NCO-6/9 versus other-occupation series, which is immune to this problem.
 
-## Agricultural vs Non-Agricultural Structural Transition
+## NCO-6/9 vs other-occupation Structural Transition
 
-The agri/non-agri binary classification uses NCO groups 6 and 9 — the same groups that form the stable low-skill category above — and is therefore unaffected by the NCO 121 coding revision. A rising non-agricultural share represents structural transformation: workers moving out of agricultural occupations into non-farm employment.
+The NCO-6/9 versus other-occupation binary classification uses NCO groups 6 and 9 — the same groups that form the stable low-skill category above — and is therefore unaffected by the NCO 121 coding revision. A rising outside-NCO-6/9 share describes a shift in the observed occupation mix; it does not directly measure movement out of agricultural industries.
 
 ```{r national-agri-trends}
-# National agri/non-agri trends
+# National NCO-6/9 versus other-occupation trends
 national_agri <- agri |>
   filter(balanced_panel == TRUE, sex == "all") |>
   group_by(year, file_sector, agri_nonagri) |>
@@ -181,7 +192,7 @@ national_agri <- agri |>
   ungroup()
 
 # Print table
-cat("=== Non-agricultural employment share by round and sector ===\n")
+cat("=== outside-NCO-6/9 employment share by round and sector ===\n")
 national_agri |>
   filter(agri_nonagri == "non_agricultural") |>
   select(year, file_sector, national_share) |>
@@ -193,8 +204,8 @@ national_agri |>
 # Plot
 agri_colours <- c(agricultural     = "#4dac26",
                   non_agricultural = "#2166ac")
-agri_labels  <- c(agricultural     = "Agricultural (NCO 6, 9)",
-                  non_agricultural = "Non-agricultural (all other NCO)")
+agri_labels  <- c(agricultural     = "NCO groups 6 and 9 (occupation proxy)",
+                  non_agricultural = "outside-NCO-6/9 (all other NCO)")
 
 national_agri |>
   mutate(agri_nonagri = factor(agri_nonagri,
@@ -213,9 +224,9 @@ national_agri |>
   facet_wrap(~file_sector,
              labeller = labeller(file_sector = c(urban = "Urban sector",
                                                  rural = "Rural sector"))) +
-  labs(title    = "Non-agricultural employment share — PLFS 2017-18 to 2023-24",
+  labs(title    = "outside-NCO-6/9 employment share — PLFS 2017-18 to 2023-24",
        subtitle = "Balanced panel districts, population-weighted shares",
-       caption  = "Agricultural = NCO major groups 6 and 9. Unaffected by 2021-22 NCO coding revision.\nSource: PLFS unit-level microdata, MOSPI.",
+       caption  = "NCO-6/9 proxy = NCO major groups 6 and 9. Unaffected by 2021-22 NCO coding revision.\nSource: PLFS unit-level microdata, MOSPI.",
        x = NULL, y = "Employment share") +
   theme_minimal(base_size = 12) +
   theme(legend.position  = "bottom",
@@ -224,29 +235,29 @@ national_agri |>
         strip.text       = element_text(face = "bold"))
 ```
 
-The agri/non-agri trends reveal a finding that is honest but analytically challenging: both the rural non-agricultural share (~84-85%) and the urban non-agricultural share (~37-39%) are essentially flat across all seven rounds. There is no detectable trend in either direction.
+The NCO-6/9 versus other-occupation trends reveal a finding that is honest but analytically challenging: both the rural outside-NCO-6/9 share (~84-85%) and the urban outside-NCO-6/9 share (~37-39%) are essentially flat across all seven rounds. There is no detectable trend in either direction.
 
-For rural areas, a non-agricultural share of 85% is implausibly high — it would imply that the vast majority of rural employed workers are in non-farm occupations, contradicting all available evidence on Indian rural employment structure. The high non-agricultural share is a direct consequence of the NCO coding issues identified in `01_clean.Rmd`: a large fraction of rural workers are coded as managers (NCO 121, 35-40% of rural employed in early rounds) or service workers (NCO 522, rising to 35% in later rounds) rather than in agricultural categories. These workers are likely smallholder farmers, agricultural traders, or rural self-employed individuals whose occupations were imprecisely coded by PLFS enumerators.
+For rural areas, a outside-NCO-6/9 share of 85% is implausibly high — it would imply that the vast majority of rural employed workers are in non-farm occupations, contradicting all available evidence on Indian rural employment structure. The high outside-NCO-6/9 share is a direct consequence of the NCO coding issues identified in `01_clean.Rmd`: a large fraction of rural workers are coded as managers (NCO 121, 35-40% of rural employed in early rounds) or service workers (NCO 522, rising to 35% in later rounds) rather than in NCO-6/9 categories. These workers are likely smallholder farmers, agricultural traders, or rural self-employed individuals whose occupations were imprecisely coded by PLFS enumerators.
 
-For urban areas, the 62-63% agricultural share is driven by the persistent NCO 611 coding that we noted in the cleaning notebook — a large proportion of urban workers classified as market gardeners or crop growers, which is also implausible at that scale.
+For urban areas, the 62-63% NCO-6/9 share is driven by the persistent NCO 611 coding that we noted in the cleaning notebook — a large proportion of urban workers classified as market gardeners or crop growers, which is also implausible at that scale.
 
 The combined picture is clear: PLFS NCO coding quality in this period is insufficient to support credible national-level claims about either skill polarisation or agricultural structural transformation. Both the three-way classification and the binary classification are affected, albeit through different channels. The low-skill category (NCO 6+9) is internally consistent and stable, but its level is unreliable as a measure of actual agricultural employment.
 
-The analytical pivot is therefore to cross-sectional variation across districts. Even if national levels are mis-measured due to coding issues, the distribution of skill shares across districts may contain genuine geographic signal — districts with systematically different NCO coding patterns are less likely to drive cross-sectional variation than time-series revisions. The remainder of this notebook focuses on district heterogeneity: which districts show higher or lower non-agricultural or skill shares, how that distribution varies, and how it correlates with trade exposure in Notebook 6.
+The analytical pivot is therefore to cross-sectional variation across districts. Even if national levels are mis-measured due to coding issues, the distribution of skill shares across districts may contain genuine geographic signal — districts with systematically different NCO coding patterns are less likely to drive cross-sectional variation than time-series revisions. The remainder of this notebook focuses on district heterogeneity: which districts show higher or lower outside-NCO-6/9 or skill shares, how that distribution varies, and how it correlates with trade exposure in Notebook 6.
 
-## District-Level Distribution of Non-Agricultural Employment
+## District-Level Distribution of outside-NCO-6/9 Employment
 
-We examine the cross-sectional distribution of the non-agricultural employment share across districts for each round. Despite unreliable national levels, cross-district variation may reflect genuine geographic differences in economic structure. We use the balanced, cell-size-filtered agri panel and focus on the non-agricultural share as the more stable measure.
+We examine the cross-sectional distribution of the outside-NCO-6/9 employment share across districts for each round. Despite unreliable national levels, cross-district variation may reflect genuine geographic differences in economic structure. We use the balanced, cell-size-filtered agri panel and focus on the outside-NCO-6/9 share as the more stable measure.
 
 ```{r district-distribution}
-# Non-agricultural share at district level
+# outside-NCO-6/9 share at district level
 # One observation per district per round per sector
 nonagri_dist <- agri_bal |>
   filter(sex == "all", agri_nonagri == "non_agricultural") |>
   mutate(year_label = paste0(year - 1, "-", substr(year, 3, 4)))
 
-# Summary statistics of district non-agri share by round and sector
-cat("=== District-level non-agricultural share: summary ===\n")
+# Summary statistics of district outside-NCO-6/9 share by round and sector
+cat("=== District-level outside-NCO-6/9 share: summary ===\n")
 nonagri_dist |>
   group_by(year, file_sector) |>
   summarise(
@@ -264,18 +275,18 @@ nonagri_dist |>
 
 The district-level distribution reveals two analytically useful patterns that the national aggregate obscured.
 
-First, the cross-sectional variation is substantial and stable. Urban districts span a 30+ percentage point range between the 25th and 75th percentiles (28% to 58% non-agricultural) in every round. Rural districts span a 15-20 point range (73-80% to 92-95%). This variation is large enough to be meaningful and is not an artefact of coding revisions — it reflects genuine geographic differences in district economic structure that persist across rounds.
+First, the cross-sectional variation is substantial and stable. Urban districts span a 30+ percentage point range between the 25th and 75th percentiles (28% to 58% outside-NCO-6/9) in every round. Rural districts span a 15-20 point range (73-80% to 92-95%). This variation is large enough to be meaningful and is not an artefact of coding revisions — it reflects genuine geographic differences in district economic structure that persist across rounds.
 
-Second, the rural mean non-agricultural share shows a mild declining trend (85.5% in 2018 to 81.9% in 2024) while rural standard deviation widens slightly (12.1 to 14.6). The declining mean is consistent with the NCO 121 revision reducing the share of workers incorrectly coded as high-skill non-agricultural, but the widening standard deviation suggests the cross-district distribution is also spreading — some districts becoming more divergent from the national pattern over time. Urban means and medians are essentially flat throughout.
+Second, the rural mean outside-NCO-6/9 share shows a mild declining trend (85.5% in 2018 to 81.9% in 2024) while rural standard deviation widens slightly (12.1 to 14.6). The declining mean is consistent with the NCO 121 revision reducing the share of workers incorrectly coded as high-skill outside-NCO-6/9, but the widening standard deviation suggests the cross-district distribution is also spreading — some districts becoming more divergent from the national pattern over time. Urban means and medians are essentially flat throughout.
 
 The number of districts per round varies slightly due to the cell size filter — more districts are retained in rounds with larger samples. The 2017-18 rural figure (288 districts) is notably lower than subsequent rounds, consistent with the smaller 2017-18 rural sample documented in earlier notebooks.
 
 ## District Distribution — Kernel Density
 
-Overlaid kernel density estimates of the district non-agricultural employment share for each round show whether the cross-district distribution is shifting, widening, or stable over time.
+Overlaid kernel density estimates of the district outside-NCO-6/9 employment share for each round show whether the cross-district distribution is shifting, widening, or stable over time.
 
 ```{r kernel-density}
-# Kernel density of district non-agri share by round
+# Kernel density of district outside-NCO-6/9 share by round
 sector_labels <- c(rural = "Rural sector", urban = "Urban sector")
 
 # Colour palette: sequential from light to dark blue across years
@@ -295,10 +306,10 @@ nonagri_dist |>
   facet_wrap(~file_sector,
              scales   = "free_y",
              labeller = labeller(file_sector = sector_labels)) +
-  labs(title    = "District distribution of non-agricultural employment share",
+  labs(title    = "District distribution of outside-NCO-6/9 employment share",
        subtitle = "Kernel density across balanced-panel districts, 2017-18 to 2023-24",
        caption  = "Districts with fewer than 25 sampled employed workers excluded.\nSource: PLFS unit-level microdata, MOSPI.",
-       x = "Non-agricultural employment share (%)",
+       x = "outside-NCO-6/9 employment share (%)",
        y = "Density") +
   theme_minimal(base_size = 12) +
   theme(legend.position  = "right",
@@ -307,16 +318,16 @@ nonagri_dist |>
         strip.text       = element_text(face = "bold"))
 ```
 
-The kernel density plots confirm the district distribution is remarkably stable across all seven rounds in both sectors. In the rural panel, the distribution is concentrated between 75-100% non-agricultural with a peak near 90%, and the seven overlapping density curves are nearly indistinguishable — no discernible shift left or right over the period. In the urban panel, the distribution peaks around 25-35% non-agricultural and extends to a long right tail, again with minimal movement across rounds. The 2018 rural curve (lightest blue) shows a slightly tighter, higher peak than later rounds, consistent with the marginally higher mean in that year, but this difference is small.
+The kernel density plots confirm the district distribution is remarkably stable across all seven rounds in both sectors. In the rural panel, the distribution is concentrated between 75-100% outside-NCO-6/9 with a peak near 90%, and the seven overlapping density curves are nearly indistinguishable — no discernible shift left or right over the period. In the urban panel, the distribution peaks around 25-35% outside-NCO-6/9 and extends to a long right tail, again with minimal movement across rounds. The 2018 rural curve (lightest blue) shows a slightly tighter, higher peak than later rounds, consistent with the marginally higher mean in that year, but this difference is small.
 
 The cross-sectional spread in urban districts — a range from near-zero to 100% — reflects genuine geographic diversity in Indian urban economic structure that persists throughout the panel. This cross-sectional variation is the primary signal available for analysis. The absence of distributional shift across rounds, combined with the flat national means, confirms that no detectable aggregate structural transformation occurred within this seven-year window that is separable from NCO coding artefacts.
 
 ## COVID-19 Shock Assessment
 
-The 2020-21 round captures the COVID-19 pandemic year — the national lockdown from March 2020 severely disrupted Indian labour markets. We test whether the pandemic produced a distinctive shift in the district-level non-agricultural share, and whether any shift persisted into 2022-23.
+The 2020-21 round captures the COVID-19 pandemic year — the national lockdown from March 2020 severely disrupted Indian labour markets. We test whether the pandemic produced a distinctive shift in the district-level outside-NCO-6/9 share, and whether any shift persisted into 2022-23.
 
 ```{r covid-shock}
-# Compare district non-agri shares across three periods:
+# Compare district outside-NCO-6/9 shares across three periods:
 # Pre-COVID: 2019-20 (year=2020)
 # COVID:     2020-21 (year=2021)
 # Recovery:  2021-22 (year=2022)
@@ -334,7 +345,7 @@ covid_compare <- nonagri_dist |>
                              "Recovery\n(2021-22)")))
 
 # Summary statistics for each period
-cat("=== Non-agricultural share: pre-COVID, COVID, and recovery ===\n")
+cat("=== outside-NCO-6/9 share: pre-COVID, COVID, and recovery ===\n")
 covid_compare |>
   group_by(file_sector, period) |>
   summarise(
@@ -356,7 +367,7 @@ covid_change <- nonagri_dist |>
   filter(!is.na(yr_2020), !is.na(yr_2021)) |>
   mutate(covid_change = (yr_2021 - yr_2020) * 100)
 
-cat("\n=== District-level change in non-agri share: 2019-20 to 2020-21 ===\n")
+cat("\n=== District-level change in outside-NCO-6/9 share: 2019-20 to 2020-21 ===\n")
 covid_change |>
   group_by(file_sector) |>
   summarise(
@@ -370,11 +381,11 @@ covid_change |>
   print()
 ```
 
-The COVID shock analysis produces one of the more analytically interesting findings in this notebook. At the aggregate level, the pandemic produced essentially no detectable shift in the non-agricultural employment share — rural mean fell by just 0.4 percentage points and urban by 1.1 points from pre-COVID to the COVID year, both well within sampling variation. The recovery year shows rural mean rebounding above pre-COVID levels (83.6% vs 82.9%) and urban remaining stable.
+The COVID shock analysis produces one of the more analytically interesting findings in this notebook. At the aggregate level, the pandemic produced essentially no detectable shift in the outside-NCO-6/9 employment share — rural mean fell by just 0.4 percentage points and urban by 1.1 points from pre-COVID to the COVID year, both well within sampling variation. The recovery year shows rural mean rebounding above pre-COVID levels (83.6% vs 82.9%) and urban remaining stable.
 
-At the district level, the picture is striking: 49.9% of rural districts and 54.3% of urban districts showed a decline in non-agricultural share during the COVID year, while the remainder showed an increase. The mean district-level change is effectively zero for rural (-0.11pp) and small for urban (-1.24pp), but the standard deviation of district-level changes is enormous — 13.7pp for rural and 13.5pp for urban. This means individual districts experienced swings of ±13 percentage points in either direction, but these swings were largely offsetting at the aggregate level.
+At the district level, the picture is striking: 49.9% of rural districts and 54.3% of urban districts showed a decline in outside-NCO-6/9 share during the COVID year, while the remainder showed an increase. The mean district-level change is effectively zero for rural (-0.11pp) and small for urban (-1.24pp), but the standard deviation of district-level changes is enormous — 13.7pp for rural and 13.5pp for urban. This means individual districts experienced swings of ±13 percentage points in either direction, but these swings were largely offsetting at the aggregate level.
 
-This pattern is consistent with PLFS capturing the labour market reality of COVID-19 in India: the pandemic produced severe but heterogeneous local disruptions — some districts lost large shares of non-agricultural employment while others gained — without a systematic aggregate sectoral shift. Workers who lost non-agricultural work appear to have largely returned to previous activity patterns within the PLFS reference periods, rather than permanently shifting into agriculture. The absence of a permanent post-COVID structural break is confirmed by the recovery year means returning to pre-COVID levels.
+This pattern is consistent with PLFS capturing the labour market reality of COVID-19 in India: the pandemic produced severe but heterogeneous local disruptions — some districts lost large shares of outside-NCO-6/9 employment while others gained — without a systematic aggregate sectoral shift. Workers who lost outside-NCO-6/9 work appear to have largely returned to previous activity patterns within the PLFS reference periods, rather than permanently shifting into agriculture. The absence of a permanent post-COVID structural break is confirmed by the recovery year means returning to pre-COVID levels.
 
 ## Summary
 
@@ -382,21 +393,12 @@ This notebook has examined the core polarisation research question using the PLF
 
 **On the three-way skill classification:** The national trend analysis confirms that the NCO 121 coding revision between 2020-21 and 2021-22 makes cross-round comparison of the three-way skill classification unreliable. The high- and middle-skill series show a large discontinuity at the revision boundary. The low-skill share (NCO groups 6 and 9) is the only component of the three-way classification that is stable and internally consistent throughout the panel.
 
-**On the agri/non-agri classification:** Despite being immune to the NCO 121 revision, the binary classification also shows flat national trends. The rural non-agricultural share (~82-86%) and urban non-agricultural share (~44-46%) are effectively unchanged across the seven rounds. The levels are implausibly high for rural areas, reflecting persistent NCO coding quality issues that inflate the non-agricultural category throughout the panel.
+**On the NCO-6/9 versus other-occupation classification:** Despite being immune to the NCO 121 revision, the binary classification also shows flat national trends. The rural outside-NCO-6/9 share (~82-86%) and urban outside-NCO-6/9 share (~44-46%) are effectively unchanged across the seven rounds. The levels are implausibly high for rural areas, reflecting persistent NCO coding quality issues that inflate the outside-NCO-6/9 category throughout the panel.
 
-**On cross-sectional variation:** Substantial and stable geographic variation exists across districts. Urban districts span a 30+ percentage point range in non-agricultural employment share in every round. This cross-sectional variation, which is not driven by time-series coding revisions, is the primary analytical signal available from this data.
+**On cross-sectional variation:** Substantial and stable geographic variation exists across districts. Urban districts span a 30+ percentage point range in outside-NCO-6/9 employment share in every round. This cross-sectional variation, which is not driven by time-series coding revisions, is the primary analytical signal available from this data.
 
 **On the COVID shock:** No aggregate structural break is detectable. District-level changes are large in absolute terms but statistically offsetting, consistent with a heterogeneous but largely transient pandemic disruption.
 
-**Implication for subsequent notebooks:** Notebooks 4 and 5 (gender decomposition, urban-rural split) examine whether the cross-sectional variation is patterned by gender or geographic type. Notebook 6 tests whether districts with greater trade exposure, as measured by Project 6's spatial proxies, systematically differ in their non-agricultural employment structure — the primary causal hypothesis of the portfolio.
+**Implication for subsequent notebooks:** Notebooks 4 and 5 (gender decomposition, urban-rural split) examine whether the cross-sectional variation is patterned by gender or geographic type. Notebook 6 tests whether districts with greater trade exposure, as measured by Project 6's spatial proxies, systematically differ in their outside-NCO-6/9 employment structure — the primary causal hypothesis of the portfolio.
 
 **Proceed to `04_gender.Rmd`.**
-
-
-
-
-
-
-
-
-

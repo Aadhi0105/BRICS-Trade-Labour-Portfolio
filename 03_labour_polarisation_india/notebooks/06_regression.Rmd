@@ -37,11 +37,11 @@ We load both datasets: the PLFS agri panel from Project 3 and the trade exposure
 library(sf)
 
 # PLFS district panel
-agri <- readRDS("~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data/plfs_agri_panel.rds")
+agri <- readRDS("../../03_labour_polarisation_india/data/plfs_agri_panel.rds")
 
 # Project 6 trade exposure panel
 proj6_raw <- st_read(
-  "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/06_trade_exposure_maps/data/processed/districts_full_panel.gpkg",
+  "../../06_trade_exposure_maps/data/processed/districts_full_panel.gpkg",
   quiet = TRUE
 ) |>
   st_drop_geometry()   # drop geometry — attribute table only
@@ -86,7 +86,7 @@ cat("PLFS censuscode range:", min(plfs_coded$censuscode, na.rm=TRUE),
 cat("Project 6 censuscode range:", min(proj6_raw$censuscode),
     "to", max(proj6_raw$censuscode), "\n\n")
 
-# Compute average non-agricultural share per district-sector across all rounds
+# Compute average outside-NCO-6/9 share per district-sector across all rounds
 # Using all rounds (robust to individual-round coding issues)
 plfs_avg <- plfs_coded |>
   group_by(censuscode, state, state_int, district, file_sector) |>
@@ -125,11 +125,11 @@ merged |>
   print()
 ```
 
-The merge succeeds with 616 unique districts matched out of 640 in the Project 6 panel — a 96.25% match rate. The 24 unmatched districts are those present in the Project 6 Census 2011 panel but absent from the PLFS balanced panel after the cell size filter. The sample verification confirms the merge key is correctly constructed — Kupwara, Badgam, Punch in Jammu & Kashmir align with the expected censuscode sequence. The merged dataset contains 1,115 district-sector observations (urban and rural), each with a seven-round average non-agricultural employment share linked to the Project 6 trade exposure proxies.
+The merge succeeds with 616 unique districts matched out of 640 in the Project 6 panel — a 96.25% match rate. The 24 unmatched districts are those present in the Project 6 Census 2011 panel but absent from the PLFS balanced panel after the cell size filter. The sample verification confirms the merge key is correctly constructed — Kupwara, Badgam, Punch in Jammu & Kashmir align with the expected censuscode sequence. The merged dataset contains 1,115 district-sector observations (urban and rural), each with a seven-round average outside-NCO-6/9 employment share linked to the Project 6 trade exposure proxies.
 
-## Regression — Trade Exposure and Non-Agricultural Employment
+## Regression — Trade Exposure and outside-NCO-6/9 Employment
 
-We regress the district-level average non-agricultural employment share on three trade exposure proxies from Project 6: log distance to the nearest major port, log distance to the nearest SEZ, and an indicator for whether the district lies within any notified industrial corridor. We include the Economic Census 2013 nonfarm share as a baseline control for historical employment structure, log population from Census 2011 as a size control, and state fixed effects to absorb state-level confounders. Standard errors are clustered at the state level. Regressions are run separately for urban and rural sectors.
+We regress the district-level average outside-NCO-6/9 employment share on three trade exposure proxies from Project 6: log distance to the nearest major port, log distance to the nearest SEZ, and an indicator for whether the district lies within any notified industrial corridor. We include the Economic Census 2013 non-farm employment-to-population ratio as a baseline control for historical employment structure, log population from Census 2011 as a size control, and state fixed effects to absorb state-level confounders. Standard errors are clustered at the state level. Regressions are run separately for urban and rural sectors.
 
 ```{r regression}
 # Prepare regression dataset
@@ -175,15 +175,15 @@ summary(m_rural)
 
 Both regressions converge and produce meaningful coefficients. Several findings stand out.
 
-**Port distance** is negative and statistically significant in both sectors — urban: -0.031 (p=0.025), rural: -0.033 (p=0.002). Within states, districts located closer to major ports show systematically higher non-agricultural employment shares. A one-log-unit reduction in port distance (roughly halving the distance) is associated with approximately 3 percentage points higher non-agricultural employment share. This is the most robust finding across both sectors and is consistent with the geographic economics literature on port access and structural transformation.
+**Port distance** is negative and statistically significant in both sectors — urban: -0.031 (p=0.025), rural: -0.033 (p=0.002). Within states, districts located closer to major ports show systematically higher outside-NCO-6/9 employment shares. A one-log-unit reduction in port distance (roughly halving the distance) is associated with approximately 3 percentage points higher outside-NCO-6/9 employment share. This is the most robust finding across both sectors and is consistent with the geographic economics literature on port access and structural transformation.
 
-**SEZ distance** is negative and significant in urban areas (-0.026, p=0.014) but not significant in rural areas (0.009, p=0.38). Urban districts closer to SEZs show higher non-agricultural shares, consistent with SEZ-driven industrialisation pulling workers into manufacturing and services. The null rural result likely reflects that SEZs are primarily urban or peri-urban institutions whose labour market effects do not extend strongly into the rural hinterland.
+**SEZ distance** is negative and significant in urban areas (-0.026, p=0.014) but not significant in rural areas (0.009, p=0.38). Urban districts closer to SEZs show higher outside-NCO-6/9 shares, consistent with SEZ-driven industrialisation pulling workers into manufacturing and services. The null rural result likely reflects that SEZs are primarily urban or peri-urban institutions whose labour market effects do not extend strongly into the rural hinterland.
 
-**Industrial corridor membership** is negative and significant in both sectors — urban: -0.055 (p=0.035), rural: -0.132 (p<0.001) — an unexpected sign. This may reflect two overlapping phenomena. First, the corridor indicator covers 72% of districts (it is a broad binary), so it captures many agricultural districts that happen to overlap with corridor alignments, not just industrialised corridor nodes. Second, large infrastructure projects along corridors attract construction workers and elementary occupation workers (NCO group 9) who are classified as low-skill and hence agricultural in our binary classification, mechanically lowering the non-agricultural share. A distance-to-corridor measure, rather than a binary overlap, would likely reverse this sign.
+**Industrial corridor membership** is negative and significant in both sectors — urban: -0.055 (p=0.035), rural: -0.132 (p<0.001) — an unexpected sign. This may reflect two overlapping phenomena. First, the corridor indicator covers 72% of districts (it is a broad binary), so it captures many agricultural districts that happen to overlap with corridor alignments, not just industrialised corridor nodes. Second, large infrastructure projects along corridors attract construction workers and elementary occupation workers (NCO group 9) who are classified in NCO groups 6 and 9 in the occupation proxy, mechanically lowering the outside-NCO-6/9 share. A distance-to-corridor measure would require a separate sensitivity analysis; its sign is unknown.
 
-**Baseline nonfarm share** (Economic Census 2013) is positive and significant in both sectors — districts with more nonfarm employment in 2013 also show higher PLFS non-agricultural shares — providing a cross-survey consistency check that the PLFS non-agricultural measure retains genuine geographic signal despite the NCO coding issues.
+**Baseline non-farm employment-to-population ratio** (Economic Census 2013) is positive and significant in both sectors — districts with more nonfarm employment in 2013 also show higher PLFS outside-NCO-6/9 shares — providing a cross-survey consistency check that the PLFS outside-NCO-6/9 measure retains genuine geographic signal despite the NCO coding issues.
 
-**Model fit** differs substantially across sectors. The urban regression achieves an adjusted R² of 0.636 (within R² = 0.380) — state fixed effects and trade exposure proxies together explain 64% of variation in urban non-agricultural shares. The rural regression fits less well (adjusted R² = 0.261, within R² = 0.118), consistent with rural employment structure being less systematically related to trade infrastructure proximity and more influenced by local agricultural conditions.
+**Model fit** differs substantially across sectors. The urban regression achieves an adjusted R² of 0.636 (within R² = 0.380) — state fixed effects and trade exposure proxies together explain 64% of variation in urban outside-NCO-6/9 shares. The rural regression fits less well (adjusted R² = 0.261, within R² = 0.118), consistent with rural employment structure being less systematically related to trade infrastructure proximity and more influenced by local agricultural conditions.
 
 These results are correlational throughout. No causal identification is claimed — the trade exposure proxies are not credible instruments for the reasons discussed in the notebook overview, and the ADH-style Bartik instrument extension flagged in the README remains the path to causal identification when industry-level data becomes available.
 
@@ -232,9 +232,9 @@ coefs |>
   scale_colour_manual(values = c(Urban = "#762a83", Rural = "#4dac26"),
                       name = NULL) +
   scale_x_continuous(labels = label_number(accuracy = 0.01)) +
-  labs(title    = "Trade exposure and non-agricultural employment share",
+  labs(title    = "Trade exposure and outside-NCO-6/9 employment share",
        subtitle = "OLS with state fixed effects, SE clustered at state level. 95% CIs shown.",
-       caption  = "Dependent variable: mean non-agricultural employment share across PLFS 2017-18 to 2023-24.\nSource: PLFS microdata (MOSPI) merged with Project 6 trade exposure panel.",
+       caption  = "Dependent variable: mean outside-NCO-6/9 employment share across PLFS 2017-18 to 2023-24.\nSource: PLFS microdata (MOSPI) merged with Project 6 trade exposure panel.",
        x = "Coefficient estimate",
        y = NULL) +
   theme_minimal(base_size = 12) +
@@ -251,35 +251,12 @@ This notebook has completed the regression stage of the Project 3 analysis. Thre
 
 **The merge between Project 3 and Project 6 succeeds at 96% coverage.** The PLFS district codes follow the Census 2011 cumulative sequential numbering, enabling a direct link to the Project 6 spatial panel without an external crosswalk. 616 of 640 districts are matched, providing a strong cross-project analytical foundation.
 
-**Port proximity is the most robust trade exposure correlate.** Districts closer to major ports show consistently higher non-agricultural employment shares in both urban and rural sectors, with coefficients of approximately -0.03 and 95% confidence intervals excluding zero in both cases. This is consistent with port access facilitating trade-linked structural transformation — workers in port hinterland districts are more concentrated in manufacturing and service occupations.
+**Port proximity is the most robust trade exposure correlate.** Districts closer to major ports show consistently higher outside-NCO-6/9 employment shares in both urban and rural sectors, with coefficients of approximately -0.03 and 95% confidence intervals excluding zero in both cases. This is consistent with port access facilitating trade-linked structural transformation — workers in port hinterland districts are more concentrated in manufacturing and service occupations.
 
 **SEZ proximity matters for urban but not rural employment structure.** The urban SEZ coefficient is negative and significant (-0.026); the rural coefficient is near zero and insignificant. SEZs are primarily urban institutions whose structural employment effects are geographically contained.
 
-**The industrial corridor result is counterintuitive but explicable.** Both sectors show negative corridor coefficients, with rural showing a larger effect (-0.132). This likely reflects the coarseness of the binary corridor indicator — it overlaps with many agricultural districts — and the concentration of construction and elementary occupation workers in active corridor zones, who are classified as low-skill or agricultural in the binary classification.
+**The industrial corridor result is counterintuitive but explicable.** Both sectors show negative corridor coefficients, with rural showing a larger effect (-0.132). This likely reflects the coarseness of the binary corridor indicator — it overlaps with many agricultural districts — and the concentration of construction and elementary occupation workers in active corridor zones, who are classified in NCO groups 6 and 9 in the occupation proxy.
 
 **Causal identification remains a limitation.** These are OLS correlations with state fixed effects. The trade exposure proxies from Project 6 are spatial distances, not credible instruments. The ADH-style Bartik shift-share design — using historical industry composition interacted with national import growth — represents the natural extension when industry-level district data becomes available from SHRUG's forthcoming NIC-linked Economic Census module.
 
 **Project 3 is analytically complete.** The six notebooks collectively document the data pipeline from raw PLFS microdata to a merged cross-project regression, with honest treatment of OCR coding limitations, gender asymmetries, urban-rural structural differences, and the boundary of causal identification.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

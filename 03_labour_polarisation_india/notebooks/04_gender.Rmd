@@ -10,11 +10,22 @@ output:
     df_print: paged
 ---
 
+**Measurement note:** The legacy fields `agri_nonagri`, `nonagri_share`, and
+`plfs_agri_panel.rds` retain their names for compatibility. They describe an
+occupation-based proxy: NCO major groups 6 and 9 versus groups 1–5, 7 and 8,
+among employed workers with a classified occupation. Group 9 includes elementary
+occupations across industries; this is not an agricultural/non-agricultural
+industry split. The urban pipeline retains `ups_nic`, but the rural crosswalk
+does not retain a comparable NIC field. A harmonised NIC-based definition would
+require a raw-data audit and recomputation of Projects 3 and 1. Existing values
+and coefficients are preserved; they must be interpreted as occupation-group
+associations, not sectoral employment estimates.
+
 ## Overview
 
-This notebook examines gender differences in employment structure across Indian districts using the PLFS panel 2017-18 to 2023-24. The analysis focuses on three questions: how do female and male non-agricultural employment shares differ nationally and across districts; is the gender gap in non-agricultural employment narrowing over the panel period; and which districts show the greatest female non-agricultural participation.
+This notebook examines gender differences in employment structure across Indian districts using the PLFS panel 2017-18 to 2023-24. The analysis focuses on three questions: how do female and male outside-NCO-6/9 employment shares differ nationally and across districts; is the gender gap in outside-NCO-6/9 employment narrowing over the panel period; and which districts show the greatest female outside-NCO-6/9 participation.
 
-Given the NCO coding quality constraints documented in Notebook 3, the three-way skill classification is not used here. All analysis uses the agri/non-agri binary classification, which is internally consistent across rounds. The 2017-18 urban sex data is excluded throughout — as documented in `01_clean.Rmd`, nearly 50% of urban 2017-18 observations have missing sex values due to the rotating panel visit structure.
+Given the NCO coding quality constraints documented in Notebook 3, the three-way skill classification is not used here. All analysis uses the NCO-6/9 versus other-occupation binary classification, which is internally consistent across rounds. The 2017-18 urban sex data is excluded throughout — as documented in `01_clean.Rmd`, nearly 50% of urban 2017-18 observations have missing sex values due to the rotating panel visit structure.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
@@ -37,7 +48,7 @@ library(scales)
 We load the agri panel and apply three filters: balanced panel restriction, minimum cell size of 25, and exclusion of the 2017-18 urban sex-disaggregated data. We then separate the overall (sex = "all") and sex-disaggregated observations for distinct uses throughout the notebook.
 
 ```{r load-data}
-agri <- readRDS("~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data/plfs_agri_panel.rds")
+agri <- readRDS("../../03_labour_polarisation_india/data/plfs_agri_panel.rds")
 
 MIN_N <- 25
 
@@ -76,10 +87,10 @@ The analysis therefore proceeds at two levels: national weighted aggregates (cov
 
 ## National Gender Trends
 
-We compute national non-agricultural employment shares separately for male and female workers, weighted by district employment totals, using the full balanced panel without the cell size filter to avoid selection bias in the national aggregate.
+We compute national outside-NCO-6/9 employment shares separately for male and female workers, weighted by district employment totals, using the full balanced panel without the cell size filter to avoid selection bias in the national aggregate.
 
 ```{r national-gender-trends}
-# National non-agri shares by sex and round
+# National outside-NCO-6/9 shares by sex and round
 # Use full balanced panel (no cell size filter) for national aggregates
 national_gender <- agri |>
   filter(balanced_panel == TRUE,
@@ -99,7 +110,7 @@ national_gender <- agri |>
   ungroup()
 
 # Print table
-cat("=== National non-agricultural share by sex, sector, and round ===\n")
+cat("=== National outside-NCO-6/9 share by sex, sector, and round ===\n")
 national_gender |>
   select(year, file_sector, sex, national_share) |>
   mutate(national_share = round(national_share * 100, 1)) |>
@@ -109,15 +120,15 @@ national_gender |>
   print(n = 13)
 ```
 
-The table shows the gender composition of the non-agricultural workforce — what fraction of non-agricultural employed persons are female versus male. Nationally, women account for only 16-21% of non-agricultural employment, with men accounting for the remainder. The gender gap (male share minus female share) is narrowing over time — from 67.6 to 57.4 percentage points in rural areas and from 66.0 to 60.2 points in urban areas — indicating a gradual shift in the gender composition of non-agricultural work toward greater female representation.
+The table shows the gender composition of the outside-NCO-6/9 workforce — what fraction of outside-NCO-6/9 employed persons are female versus male. Nationally, women account for only 16-21% of outside-NCO-6/9 employment, with men accounting for the remainder. The gender gap (male share minus female share) is narrowing over time — from 67.6 to 57.4 percentage points in rural areas and from 66.0 to 60.2 points in urban areas — indicating a gradual shift in the gender composition of outside-NCO-6/9 work toward greater female representation.
 
-However, this measure conflates two distinct phenomena: the occupational structure of female employment and the overall level of female labour force participation. A more informative measure for this analysis is the non-agricultural employment share within each sex separately — of all employed women, what fraction work in non-agricultural occupations, and how does this compare to men? We compute this next.
+However, this measure conflates two distinct phenomena: the occupational structure of female employment and the overall level of female labour force participation. A more informative measure for this analysis is the outside-NCO-6/9 employment share within each sex separately — of all employed women, what fraction work in outside-NCO-6/9 occupations, and how does this compare to men? We compute this next.
 
-## Non-Agricultural Employment Share Within Each Sex
+## outside-NCO-6/9 Employment Share Within Each Sex
 
 ```{r within-sex-nonagri}
-# Compute non-agri share WITHIN each sex
-# Requires both agri and non-agri rows to get denominator
+# Compute outside-NCO-6/9 share WITHIN each sex
+# Requires both agri and outside-NCO-6/9 rows to get denominator
 within_sex <- agri |>
   filter(balanced_panel == TRUE,
          sex %in% c("male", "female"),
@@ -133,7 +144,7 @@ within_sex <- agri |>
   filter(agri_nonagri == "non_agricultural") |>
   select(year, file_sector, sex, within_share)
 
-cat("=== Non-agricultural share within each sex ===\n")
+cat("=== outside-NCO-6/9 share within each sex ===\n")
 within_sex |>
   mutate(within_share = round(within_share * 100, 1)) |>
   pivot_wider(names_from = sex, values_from = within_share) |>
@@ -142,20 +153,20 @@ within_sex |>
   print(n = 13)
 ```
 
-The within-sex analysis reveals a striking and consistent pattern. Male non-agricultural employment share is broadly stable across the panel — rural males hover between 85-88%, urban males between 41-44% — with no clear directional trend. Female non-agricultural employment share is declining in both sectors, and the gender gap is widening.
+The within-sex analysis reveals a striking and consistent pattern. Male outside-NCO-6/9 employment share is broadly stable across the panel — rural males hover between 85-88%, urban males between 41-44% — with no clear directional trend. Female outside-NCO-6/9 employment share is declining in both sectors, and the gender gap is widening.
 
-In rural areas, female non-agricultural share falls from 81.4% in 2018 to 75.9% in 2024 — a 5.5 percentage point decline over six years — while male share rises slightly from 86.2% to 87.7%. The rural gender gap widens from 4.8 points to 11.8 points.
+In rural areas, female outside-NCO-6/9 share falls from 81.4% in 2018 to 75.9% in 2024 — a 5.5 percentage point decline over six years — while male share rises slightly from 86.2% to 87.7%. The rural gender gap widens from 4.8 points to 11.8 points.
 
-In urban areas the pattern is more pronounced. Female non-agricultural share falls from 30.7% in 2019 to 23.9% in 2024 — a 6.8 point decline — while male share is broadly stable at 41-44%. The urban gender gap widens from 10.9 to 19.3 points.
+In urban areas the pattern is more pronounced. Female outside-NCO-6/9 share falls from 30.7% in 2019 to 23.9% in 2024 — a 6.8 point decline — while male share is broadly stable at 41-44%. The urban gender gap widens from 10.9 to 19.3 points.
 
 Three interpretations of this widening gap must be held simultaneously. First, it may reflect a genuine economic phenomenon: employed women in India are increasingly concentrated in agricultural-coded occupations relative to men, consistent with the broader literature documenting declining female LFPR and the feminisation of agricultural work in India as men exit to non-farm employment. Second, the NCO coding quality issues documented in Notebook 3 — particularly the large urban NCO 611 (market gardener) category — may affect women more than men: women working in informal urban food markets or as street vegetable vendors may be disproportionately coded as agricultural relative to men doing structurally similar informal work. Third, the rural widening from 2022-23 onwards coincides with the NCO coding revision, which may have reclassified women's occupations differently from men's.
 
-The widening gender gap is reported as a finding with explicit acknowledgement that both genuine economic dynamics and coding artefacts are plausible contributors. The direction of the finding — women increasingly classified as agricultural relative to men — is consistent with Indian labour market evidence but cannot be definitively attributed to economic rather than measurement causes from this data alone.
+The widening gender gap is reported as a finding with explicit acknowledgement that both genuine economic dynamics and coding artefacts are plausible contributors. The direction of the finding — women increasingly classified in NCO groups 6 and 9 relative to men — is consistent with Indian labour market evidence but cannot be definitively attributed to economic rather than measurement causes from this data alone.
 
 ## Visualising the Gender Gap
 
 ```{r plot-gender-gap}
-# Line plot: within-sex non-agri shares over time
+# Line plot: within-sex outside-NCO-6/9 shares over time
 sector_labels <- c(rural = "Rural sector", urban = "Urban sector")
 
 p_lines <- within_sex |>
@@ -171,9 +182,9 @@ p_lines <- within_sex |>
   facet_wrap(~file_sector,
              scales = "free_y",
              labeller = labeller(file_sector = sector_labels)) +
-  labs(title    = "Non-agricultural employment share within each sex",
-       subtitle = "Share of employed women (men) working in non-agricultural occupations",
-       x = NULL, y = "Non-agricultural share") +
+  labs(title    = "outside-NCO-6/9 employment share within each sex",
+       subtitle = "Share of employed women (men) working in outside-NCO-6/9 occupations",
+       x = NULL, y = "outside-NCO-6/9 share") +
   theme_minimal(base_size = 12) +
   theme(legend.position  = "bottom",
         panel.grid.minor = element_blank(),
@@ -192,7 +203,7 @@ p_gap <- within_sex |>
                       name = NULL) +
   scale_x_continuous(breaks = 2019:2024) +
   scale_y_continuous(labels = label_number(suffix = "pp")) +
-  labs(title    = "Gender gap in non-agricultural employment share",
+  labs(title    = "Gender gap in outside-NCO-6/9 employment share",
        subtitle = "Male minus female, percentage points",
        x = NULL, y = "Gender gap (pp)") +
   theme_minimal(base_size = 12) +
@@ -208,19 +219,19 @@ p_gap <- within_sex |>
 
 The visualisation makes the widening gender gap unambiguous. In the top panel, the male line (blue) is flat or gently rising in both sectors while the female line (red) declines steadily — the two lines diverge throughout the period. In the bottom panel, both the rural gap (green) and urban gap (purple) trend upward monotonically, with the urban gap widening more sharply (11pp to 19pp) than the rural gap (5pp to 12pp).
 
-The urban female decline is particularly notable: from 31% non-agricultural in 2019 to 24% in 2024, while urban male is broadly stable at 41-44%. Urban employed women are increasingly classified in agricultural occupations relative to men — a pattern consistent with both the NCO 611 coding issue and the documented decline in Indian female LFPR in urban areas over this period.
+The urban female decline is particularly notable: from 31% outside-NCO-6/9 in 2019 to 24% in 2024, while urban male is broadly stable at 41-44%. Urban employed women are increasingly classified in NCO groups 6 and 9 relative to men — a pattern consistent with both the NCO 611 coding issue and the documented decline in Indian female LFPR in urban areas over this period.
 
-## District-Level Female Non-Agricultural Share
+## District-Level Female outside-NCO-6/9 Share
 
-We examine the distribution of female non-agricultural employment shares across districts — restricted to the subset with adequate female sample sizes — to identify geographic heterogeneity.
+We examine the distribution of female outside-NCO-6/9 employment shares across districts — restricted to the subset with adequate female sample sizes — to identify geographic heterogeneity.
 
 ```{r district-female}
-# Distribution of female non-agri share across districts
+# Distribution of female outside-NCO-6/9 share across districts
 female_dist <- agri_sex |>
   filter(sex == "female") |>
   mutate(year_label = paste0(year - 1, "-", substr(year, 3, 4)))
 
-cat("=== Female non-agricultural share distribution across districts ===\n")
+cat("=== Female outside-NCO-6/9 share distribution across districts ===\n")
 female_dist |>
   group_by(year, file_sector) |>
   summarise(
@@ -236,7 +247,7 @@ female_dist |>
   print(n = 13)
 
 # Compare male vs female distribution in districts where both are available
-cat("\n=== Mean non-agri share in districts with both sexes available ===\n")
+cat("\n=== Mean outside-NCO-6/9 share in districts with both sexes available ===\n")
 agri_sex |>
   filter(year == 2023) |>
   group_by(file_sector, sex) |>
@@ -249,42 +260,20 @@ agri_sex |>
   print()
 ```
 
-The district-level female distribution reveals two additional patterns. First, the female non-agricultural share is declining across the entire distribution — not just at the mean. The rural p25 falls from 79% in 2018 to 66.2% in 2024 and the urban p25 from 43.5% to 28.9%, meaning even the districts with the highest female non-agricultural employment are experiencing decline. The widening standard deviation (rural: 10.2 to 16.1; urban: 23.7 to 25.0) indicates increasing geographic divergence — some districts are seeing large female non-agricultural declines while others remain relatively stable.
+The district-level female distribution reveals two additional patterns. First, the female outside-NCO-6/9 share is declining across the entire distribution — not just at the mean. The rural p25 falls from 79% in 2018 to 66.2% in 2024 and the urban p25 from 43.5% to 28.9%, meaning even the districts with the highest female outside-NCO-6/9 employment are experiencing decline. The widening standard deviation (rural: 10.2 to 16.1; urban: 23.7 to 25.0) indicates increasing geographic divergence — some districts are seeing large female outside-NCO-6/9 declines while others remain relatively stable.
 
-Second, the number of districts with adequate female samples is growing — from 50 to 147 rural and 62 to 80 urban. More districts now have at least 25 employed female workers in the PLFS sample. But this growing sample coverage coincides with falling non-agricultural shares, suggesting that the newly covered districts are those with high female agricultural employment — women who were always employed in agriculture but in such small numbers per PLFS sample that they only recently cross the cell size threshold.
+Second, the number of districts with adequate female samples is growing — from 50 to 147 rural and 62 to 80 urban. More districts now have at least 25 employed female workers in the PLFS sample. But this growing sample coverage coincides with falling outside-NCO-6/9 shares, suggesting that the newly covered districts are those with high female agricultural employment — women who were always employed in agriculture but in such small numbers per PLFS sample that they only recently cross the cell size threshold.
 
-The 2023 direct comparison between male and female districts is striking but requires careful interpretation: urban female non-agricultural share (50.7%) appears nearly identical to urban male (50.1%). This is a selection artefact — the 74 female districts are precisely those with high enough female employment to generate reliable estimates, which are disproportionately districts with high female labour force participation and non-agricultural work. The 414 male districts cover the full range including districts where female employment is negligible.
+The 2023 direct comparison between male and female districts is striking but requires careful interpretation: urban female outside-NCO-6/9 share (50.7%) appears nearly identical to urban male (50.1%). This is a selection artefact — the 74 female districts are precisely those with high enough female employment to generate reliable estimates, which are disproportionately districts with high female labour force participation and outside-NCO-6/9 work. The 414 male districts cover the full range including districts where female employment is negligible.
 
 ## Summary
 
-This notebook has examined gender differences in non-agricultural employment structure across the PLFS panel. Three findings stand out.
+This notebook has examined gender differences in outside-NCO-6/9 employment structure across the PLFS panel. Three findings stand out.
 
-The gender gap in non-agricultural employment is widening. Of all employed women, a declining share work in non-agricultural occupations — from 81% to 76% in rural areas and 31% to 24% in urban areas — while male shares are stable or rising. The urban gender gap has widened from 11 to 19 percentage points over six years.
+The gender gap in outside-NCO-6/9 employment is widening. Of all employed women, a declining share work in outside-NCO-6/9 occupations — from 81% to 76% in rural areas and 31% to 24% in urban areas — while male shares are stable or rising. The urban gender gap has widened from 11 to 19 percentage points over six years.
 
 Female LFPR constraints severely limit district-level analysis. The minimum cell size threshold retains only 50-147 female rural districts and 62-80 female urban districts per round — roughly 15-20% of the male district count. This itself is a substantive finding: female employment in India is too sparse in most districts to support reliable district-level estimates from a nationally representative survey.
 
-The direction of the female trend is consistent with existing evidence but cannot be cleanly attributed to economic versus measurement causes. The decline in female non-agricultural share is consistent with the documented feminisation of agriculture in India — men exiting agricultural work faster than women — but the NCO coding quality issues documented in Notebook 3 mean coding bias cannot be ruled out as a partial contributor.
+The direction of the female trend is consistent with existing evidence but cannot be cleanly attributed to economic versus measurement causes. The decline in female outside-NCO-6/9 share is consistent with the documented feminisation of agriculture in India — men exiting agricultural work faster than women — but the NCO coding quality issues documented in Notebook 3 mean coding bias cannot be ruled out as a partial contributor.
 
 **Proceed to `05_urban_rural.Rmd`.**
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

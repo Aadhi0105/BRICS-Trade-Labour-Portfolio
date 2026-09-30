@@ -1,12 +1,52 @@
 # The China Shock in Emerging Markets: Replicating and Extending Autor, Dorn & Hanson (2013)
 
+## Interpretation and measurement
+
+The reported first stage uses weighted least squares with HC3 standard errors:
+coefficient 0.125, SE 0.017, t = 7.32, partial R² = 0.360. These indicate
+first-stage relevance in this specification, not proof against weak-instrument
+problems. No Kleibergen–Paap statistic or Stock–Yogo comparison is reported.
+Primary IV models use separate state and year fixed effects and district-clustered
+standard errors. District clustering does not fully address dependence induced
+by common industry shocks; shift-share-appropriate inference has not been
+implemented. Causal interpretation requires valid exclusion and exogeneity
+assumptions and is not established by these diagnostics. No automatic LATE
+interpretation is claimed. Insignificance does not establish a zero effect.
+
+**Measurement note:** The legacy fields `agri_nonagri`, `nonagri_share`, and
+`plfs_agri_panel.rds` retain their names for compatibility. They describe an
+occupation-based proxy: NCO major groups 6 and 9 versus groups 1–5, 7 and 8,
+among employed workers with a classified occupation. Group 9 includes elementary
+occupations across industries; this is not an agricultural/non-agricultural
+industry split. The urban pipeline retains `ups_nic`, but the rural crosswalk
+does not retain a comparable NIC field. A harmonised NIC-based definition would
+require a raw-data audit and recomputation of Projects 3 and 1. Existing values
+and coefficients are preserved; they must be interpreted as occupation-group
+associations, not sectoral employment estimates.
+
+## Baseline provenance
+
+Project 1 constructs the district × industry baseline itself from
+`06_trade_exposure_maps/data/raw/shrug/shrug-ec05-csv/ec05_shrid.csv`
+and the SHRUG Census 2011 district key, joined on `shrid2`. The notebook keeps
+the first district per duplicated `shrid2`, drops unmatched locations, aggregates
+employment to Census 2011 districts, and divides each industry's employment by
+`ec05_emp_all`. This first-match treatment, particularly for Delhi, is a
+geographic limitation, not a validated allocation across split districts.
+The saved baseline CSV has 628 rows and **29** manufacturing share columns;
+the instrument uses **28** after excluding SHRIC 27 for lack of an HS6 mapping.
+SHRIC 50 is excluded as a mixed category. Manufacturing shares need not sum to
+one because their denominator is all covered non-farm employment. Project 6's
+GeoPackage supplies geography and infrastructure measures, not this industry
+matrix. The raw SHRUG modules are not committed.
+
 ## Overview
 
-This project applies the Autor, Dorn and Hanson (2013, AER) shift-share identification strategy to Indian districts, asking whether exposure to Chinese import competition causally explains labour market outcomes across Indian districts in the PLFS period 2017–2022. The project is the identification centrepiece of a three-project empirical programme: Project 6 established where Indian districts sit relative to trade infrastructure and built the district-level employment baseline from SHRUG Economic Census data; Project 3 documented the labour market outcomes — employment shares, wages, and polarisation patterns — using PLFS microdata. This project is where correlation becomes causal inference.
+This project applies the Autor, Dorn and Hanson (2013, AER) shift-share identification strategy to Indian districts, asking whether exposure to Chinese import competition is associated with labour market outcomes across Indian districts in the PLFS period 2017–2022. The project is the identification centrepiece of a three-project empirical programme: Project 6 supplies geography and infrastructure measures and hosts raw SHRUG modules; Project 1 constructs the industry baseline as documented above; Project 3 documented the labour market outcomes — employment shares, wages, and polarisation patterns — using PLFS microdata. The IV interpretation depends on unverified identifying assumptions and inference limitations.
 
-India and China compete directly in global manufacturing — textiles, electronics, garments, light consumer goods. India's WTO-era integration, combined with China's post-accession export surge, generated substantial variation in import exposure across Indian districts that is plausibly exogenous to district-specific labour market trends. The identification strategy exploits this variation using a shift-share (Bartik) instrument: each district's predicted exposure to Chinese import competition is the inner product of its 2005 baseline industry composition — drawn from SHRUG Economic Census data, twelve years before the outcome period — and national-level growth in Chinese exports to comparison countries. The use of comparison-country export growth as the shift purges India-specific demand shocks from the instrument while retaining the supply-side variation driven by China's productivity expansion and infrastructure investment.
+India and China compete directly in global manufacturing — textiles, electronics, garments, light consumer goods. India's WTO-era integration, combined with China's post-accession export surge, generated substantial variation in import exposure across Indian districts that is plausibly exogenous to district-specific labour market trends. The identification strategy exploits this variation using a shift-share (Bartik) instrument: each district's predicted exposure to Chinese import competition is the inner product of its 2005 baseline industry composition — drawn from SHRUG Economic Census data, twelve years before the outcome period — and national-level growth in Chinese exports to comparison countries. The use of comparison-country export growth as the shift is intended to reduce contamination by India-specific demand shocks, but does not establish exclusion or isolate only Chinese supply shocks.
 
-The primary results document a null finding: the shift-share IV finds no statistically significant effect of Chinese import competition on non-agricultural employment shares, wages, or skill-group employment shares within Indian states over 2017–2022. The instrument is strong throughout (Kleibergen-Paap F-statistic ≈ 53.5), ruling out weak instrument concerns. The null is robust to alternative specifications and is interpreted as a meaningful finding in its own right — discussed in detail in the Key Findings section. The wage point estimate (−0.220, p=0.191) is directionally consistent with the ADH hypothesis and is the most suggestive result in the analysis.
+The primary results document a null finding: the shift-share IV finds no statistically significant effect of Chinese import competition on outside-NCO-6/9 employment shares, wages, or skill-group employment shares within Indian states over 2017–2022. The reported first-stage diagnostics indicate relevance but do not rule out weak-instrument concerns. The null is robust to alternative specifications and is interpreted as a meaningful finding in its own right — discussed in detail in the Key Findings section. The wage point estimate (−0.220, p=0.191) is directionally consistent with the ADH hypothesis and is the most suggestive result in the analysis.
 
 Honest limitations are documented throughout. The 5-year PLFS window (2017–2022) is shorter than ADH's 10-year window; within-state instrument variance is 38% of total, with state fixed effects absorbing 62% of identifying variation; and India's higher informality may limit detectability of formal employment effects.
 
@@ -14,7 +54,7 @@ Honest limitations are documented throughout. The 5-year PLFS window (2017–202
 
 ## Research Questions
 
-1. Does exposure to Chinese import competition cause lower non-agricultural employment shares in Indian districts, after instrumenting for endogenous import penetration with the shift-share instrument?
+1. Does exposure to Chinese import competition predict lower outside-NCO-6/9 employment shares in Indian districts, after instrumenting for endogenous import penetration with the shift-share instrument?
 2. Does the effect operate differentially across the skill distribution — specifically, does Chinese competition disproportionately affect middle-skill manufacturing employment?
 3. Do districts with better trade infrastructure — proximity to major ports, SEZs, and industrial corridors from Project 6 — absorb the Chinese import shock differently?
 4. How sensitive are the main results to the choice of comparison countries, the COVID round, and panel balance?
@@ -46,7 +86,7 @@ Where:
 - `ΔM_other,jt` = change in Chinese exports to comparison countries in industry j, year t
 - `L_j,2005` = national employment in industry j at baseline (scaling denominator)
 
-The twelve-year gap between the 2005 baseline shares and the 2017 outcome period maximises pre-determination of shares following Goldsmith-Pinkham, Sorkin and Swift (2020).
+The twelve-year gap between the 2005 baseline shares and the 2017 outcome period makes shares predetermined relative to the outcome window, but does not guarantee exogeneity following Goldsmith-Pinkham, Sorkin and Swift (2020).
 
 ### Two-Stage Least Squares
 
@@ -55,11 +95,11 @@ Stage 1:  Import_penetration_it = γ · Z_it + δ_s + τ_t + ν_it
 Stage 2:  Outcome_it = α + β · Import_penetration_hat_it + δ_s + τ_t + ε_it
 ```
 
-Where `δ_s` are state fixed effects and `τ_t` are year fixed effects. β is a local average treatment effect for districts whose exposure varies due to China's supply-side expansion.
+Where `δ_s` are state fixed effects and `τ_t` are year fixed effects. β is an IV coefficient whose causal interpretation requires additional assumptions; a LATE interpretation is not established.
 
 ### Standard Errors
 
-Primary specifications cluster standard errors at the district level. Robustness checks compare to year-only fixed effect specifications. Industry-level clustering (Adao, Kolesár and Morales 2019) is noted as more correct but district-level is reported as the primary result.
+Primary IV specifications cluster standard errors at district level. Shared industry shocks can induce cross-district dependence not captured by those errors; interpret inference cautiously.
 
 ---
 
@@ -106,7 +146,7 @@ Primary specifications cluster standard errors at the district level. Robustness
 │
 ├── data/
 │   ├── analysis_dataset.csv              ← Final dataset (3,675 obs, 18 cols)
-│   ├── shrug_ec05_baseline_shares.csv    ← District × SHRIC shares (628 districts)
+│   ├── shrug_ec05_baseline_shares.csv    ← District × SHRIC shares (628 districts; 29 saved, 28 used)
 │   ├── hs6_shric_crosswalk.csv           ← HS6 → SHRIC (4,138 codes, 28 SHRICs)
 │   ├── summary_statistics.csv            ← Working-paper summary statistics
 │   ├── plfs_census2011_crosswalk.csv     ← PLFS code → Census 2011 district name
@@ -134,29 +174,28 @@ Primary specifications cluster standard errors at the district level. Robustness
 **Industry composition:** High-exposure (Q4) districts are more concentrated in machinery and equipment (SHRIC 72, +9.2pp vs Q1), stone/cement (+1.7pp), chemicals (+1.2pp), other textiles (+1.2pp), and iron/steel (+0.7pp). Low-exposure (Q1) districts are more concentrated in grain milling (−0.7pp), tobacco/beedi (−0.2pp), and saw milling (−0.2pp). The instrument captures genuine industrial heterogeneity — not simply manufacturing intensity.
 
 **Raw correlations (binscatter):**
-- Instrument vs non-agri share: slope = +0.053 (positive — reflects industrial composition, not causal effect)
+- Instrument vs outside-NCO-6/9 share: slope = +0.053 (positive — reflects industrial composition, not causal effect)
 - Instrument vs log wage: slope = −0.021 (directionally consistent with ADH)
 - Instrument vs middle-skill share: slope = +0.019
 
-**Time series:** Instrument shows substantial year-to-year variation (2019 trade war trough, 2021 post-COVID peak). Non-agricultural employment share is stable across rounds (0.44–0.50), confirming identifying variation is primarily cross-sectional.
+**Time series:** Instrument shows substantial year-to-year variation (2019 trade war trough, 2021 post-COVID peak). outside-NCO-6/9 employment share is stable across rounds (0.44–0.50), confirming identifying variation is primarily cross-sectional.
 
 ### First Stage (Notebook 3)
 
-| Diagnostic | Value | Threshold | Status |
-|---|---|---|---|
-| Coefficient on Z | +0.125 | Positive required | ✓ |
-| Standard error | 0.017 | — | — |
-| t-statistic | 7.32 | >3.29 (p<0.001) | ✓ |
-| KP F-statistic | ~53.5 | >10 (Stock-Yogo) | ✓ Strong |
-| Partial R² | 0.360 | Meaningful | ✓ |
+| Diagnostic (WLS first stage, HC3) | Value |
+|---|---|
+| Coefficient on Z | +0.125 |
+| Standard error | 0.017 |
+| t-statistic | 7.32 |
+| Partial R² | 0.360 |
 
-The instrument is strong. A one-unit increase in Z predicts a 0.125 unit increase in actual Chinese import penetration within states and years.
+The reported first stage indicates relevance. A one-unit increase in Z predicts a 0.125 unit increase in actual Chinese import penetration within states and years.
 
 ### Primary IV Results (Notebook 3)
 
 | Outcome | OLS | IV | SE | t | p |
 |---|---|---|---|---|---|
-| Non-agri employment share | −0.015 | +0.051 | 0.056 | 0.91 | 0.364 |
+| outside-NCO-6/9 employment share | −0.015 | +0.051 | 0.056 | 0.91 | 0.364 |
 | Log weekly wage (rural) | — | −0.220 | 0.168 | −1.31 | 0.191 |
 | Middle-skill share | — | +0.023 | 0.055 | 0.41 | 0.680 |
 
@@ -184,7 +223,7 @@ State fixed effects absorb 62% of instrument variation. The within-state identif
 
 ### Honest Interpretation of the Null
 
-The null result is robust and meaningful. Three explanations are plausible:
+The reported coefficients are not statistically significant under the baseline specification. This does not establish a zero effect. Possible explanations, not tested mechanisms, include:
 
 1. **Insufficient within-state variation:** State fixed effects — necessary to absorb state-level labour law and industrial policy variation — remove 62% of the instrument's identifying variation. The within-state correlation between the instrument and the outcome is 0.002, essentially zero.
 
@@ -192,7 +231,7 @@ The null result is robust and meaningful. Three explanations are plausible:
 
 3. **Indian labour market context:** India's manufacturing sector has higher informality (~90% of manufacturing employment is informal), weaker labour market institutions, and lower internal migration rates than US commuting zones. The adjustment margin in India may be different — informal workers absorbing the shock through wage compression rather than employment loss — limiting detectability of formal employment effects.
 
-The wage point estimate (−0.220) is the most economically meaningful result: directionally consistent with ADH, suggesting Chinese import competition compresses wages, but statistically insignificant at conventional thresholds.
+The wage point estimate (−0.220) is the most economically meaningful result: directionally consistent with ADH, compatible with wage compression but also with a range of other effects, but statistically insignificant at conventional thresholds.
 
 ---
 
@@ -201,13 +240,13 @@ The wage point estimate (−0.220) is the most economically meaningful result: d
 | File | Description |
 |---|---|
 | `data/analysis_dataset.csv` | Final merged dataset — 3,675 obs, 617 districts, 18 columns |
-| `data/shrug_ec05_baseline_shares.csv` | District × SHRIC employment shares — 628 districts, 28 SHRICs |
+| `data/shrug_ec05_baseline_shares.csv` | District × SHRIC employment shares — 628 districts, 29 saved SHRIC shares; 28 used |
 | `data/hs6_shric_crosswalk.csv` | HS6 → SHRIC concordance — 4,138 codes, 28 manufacturing SHRICs |
 | `data/summary_statistics.csv` | Working-paper summary statistics — mean, SD, quartiles, N |
 | `data/plfs_census2011_crosswalk.csv` | PLFS code → Census 2011 district name — 715 districts, 100% match |
-| `figures/fig01_geographic_distribution.png` | Four-panel map: instrument, non-agri share, log wages, port distance |
+| `figures/fig01_geographic_distribution.png` | Four-panel map: instrument, outside-NCO-6/9 share, log wages, port distance |
 | `figures/fig02_industry_composition.png` | SHRIC shares by instrument quartile (Q1 vs Q4) |
-| `figures/fig03_binscatter.png` | Binscatter: instrument vs non-agri share, wages, middle-skill share |
+| `figures/fig03_binscatter.png` | Binscatter: instrument vs outside-NCO-6/9 share, wages, middle-skill share |
 | `figures/fig04_time_series.png` | Time series: mean instrument and outcomes by year, 2017–2022 |
 | `figures/fig05_first_stage.png` | First stage scatter: instrument vs actual import penetration (residualised) |
 | `figures/fig06_main_results.png` | Coefficient plot: OLS vs IV, three outcomes, 95% CIs |
@@ -227,7 +266,7 @@ The wage point estimate (−0.220) is the most economically meaningful result: d
 
 4. **Post-2011 district exclusions.** ~69 post-2011 new districts (all of Telangana, plus Assam/CG/Gujarat/MH splits) have no EC 2005 baseline — correctly excluded but limits geographic coverage.
 
-5. **HS-NIC crosswalk imprecision.** SHRIC 27 (casting) excluded — no HS6 mapping. SHRIC 50 excluded — mixes tradeable spinning with non-tradeable repair. Both exclusions are documented and conservative (bias toward zero).
+5. **HS-NIC crosswalk imprecision.** SHRIC 27 (casting) excluded — no HS6 mapping. SHRIC 50 excluded — mixes tradeable spinning with non-tradeable repair. Both exclusions are documented; their direction of bias is not established.
 
 6. **No price deflator.** Import penetration uses trade values, not quantities. Secular decline in Chinese manufacturing prices conflates quantity and price effects.
 
@@ -239,8 +278,8 @@ The wage point estimate (−0.220) is the most economically meaningful result: d
 
 | Project | Relationship |
 |---|---|
-| [03 — Labour Market Polarisation](../03_labour_polarisation_india/) | Provides PLFS outcome panels (employment shares, wages, skill groups) consumed by Project 1. Project 3 documents the outcome patterns; Project 1 provides the causal identification |
-| [06 — Trade Exposure Maps](../06_trade_exposure_maps/) | Provides EC 2005 district × industry employment matrix (baseline shares) and trade infrastructure proximity variables (heterogeneity analysis) |
+| [03 — Labour Market Polarisation](../03_labour_polarisation_india/) | Provides PLFS outcome panels (employment shares, wages, skill groups) consumed by Project 1. Project 3 documents the outcome patterns; Project 1 provides an IV analysis with identifying assumptions |
+| [06 — Trade Exposure Maps](../06_trade_exposure_maps/) | Hosts raw SHRUG modules aggregated by Project 1; provides geographic and infrastructure variables |
 | [02 — Exchange Rate Volatility](../02_exchange_rate_export_margins/) | Project 2 documents the export-side transmission of trade integration; Project 1 documents the import-competition transmission. Together they cover both channels |
 
 ---

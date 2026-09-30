@@ -10,9 +10,20 @@ output:
     df_print: paged
 ---
 
+**Measurement note:** The legacy fields `agri_nonagri`, `nonagri_share`, and
+`plfs_agri_panel.rds` retain their names for compatibility. They describe an
+occupation-based proxy: NCO major groups 6 and 9 versus groups 1–5, 7 and 8,
+among employed workers with a classified occupation. Group 9 includes elementary
+occupations across industries; this is not an agricultural/non-agricultural
+industry split. The urban pipeline retains `ups_nic`, but the rural crosswalk
+does not retain a comparable NIC field. A harmonised NIC-based definition would
+require a raw-data audit and recomputation of Projects 3 and 1. Existing values
+and coefficients are preserved; they must be interpreted as occupation-group
+associations, not sectoral employment estimates.
+
 ## Overview
 
-This notebook aggregates the harmonised PLFS person-level dataset produced in `01_clean.Rmd` to the district level, constructing the panel dataset that underpins all subsequent analysis. For each district, survey round, and sector, we compute survey-weighted employment shares by skill group and by the agricultural versus non-agricultural binary classification. For wage-employed workers, we compute weighted earnings distributions by skill group. The output is a district × round panel ready for polarisation analysis, gender decomposition, urban-rural comparison, and trade exposure regression.
+This notebook aggregates the harmonised PLFS person-level dataset produced in `01_clean.Rmd` to the district level, constructing the panel dataset that underpins all subsequent analysis. For each district, survey round, and sector, we compute survey-weighted employment shares by skill group and by the NCO-6/9 versus other-occupation binary classification. For wage-employed workers, we compute weighted earnings distributions by skill group. The output is a district × round panel ready for polarisation analysis, gender decomposition, urban-rural comparison, and trade exposure regression.
 
 The notebook addresses two aggregation challenges specific to this dataset: district code harmonisation across rounds — ensuring the same geographic unit is compared over time despite administrative boundary changes — and minimum cell size thresholds below which district × skill × sex estimates are too noisy to interpret.
 
@@ -39,7 +50,7 @@ library(scales)
 We load `plfs_clean.rds` — the harmonised person-level dataset produced in `01_clean.Rmd` — and run a brief inspection to confirm the structure is as expected before aggregating. No data manipulation happens here.
 
 ```{r load-data}
-plfs <- readRDS("~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data/plfs_clean.rds")
+plfs <- readRDS("../../03_labour_polarisation_india/data/plfs_clean.rds")
 
 cat("Rows:", nrow(plfs), "\n")
 cat("Columns:", ncol(plfs), "\n\n")
@@ -159,12 +170,12 @@ skill_panel |>
 ```
 The skill share panel runs in seconds and produces correct results. For district 01_21 (Jammu district, Jammu & Kashmir) in 2018-19, rural workers are predominantly high-skill (57.4%), with middle (25.8%) and low (16.8%) skill shares making up the remainder. Urban workers show a more even distribution across skill groups. These are unweighted-count sample sizes (emp_n) with weighted shares — the distinction matters in districts where the multiplier varies substantially across observations.
 
-## Agricultural vs Non-Agricultural Panel
+## NCO-6/9 vs other-occupation Panel
 
-The robust binary classification, unaffected by the NCO 121 coding break, is aggregated using the same approach.
+The occupation-based binary proxy, unaffected by the NCO 121 coding break, is aggregated using the same approach.
 
 ```{r aggregate-agri}
-# --- Agri/non-agri panel: overall ---
+# --- NCO-6/9 versus other-occupation panel: overall ---
 agri_overall <- plfs |>
   filter(!is.na(agri_nonagri)) |>
   group_by(state_district, state, district,
@@ -178,7 +189,7 @@ agri_overall <- plfs |>
   ungroup() |>
   mutate(sex = "all")
 
-# --- Agri/non-agri panel: by sex ---
+# --- NCO-6/9 versus other-occupation panel: by sex ---
 agri_by_sex <- plfs |>
   filter(!is.na(agri_nonagri), !is.na(sex_label)) |>
   group_by(state_district, state, district,
@@ -203,7 +214,7 @@ agri_panel |>
   print()
 ```
 
-The agri/non-agri panel produces 50,091 rows. The agricultural shares for district 01_21 match the low-skill shares from the skill panel exactly — rural 16.8% and urban 23.8% — which confirms internal consistency between the two classification schemes, both of which map to NCO major groups 6 and 9.
+The NCO-6/9 versus other-occupation panel produces 50,091 rows. The NCO-6/9 shares for district 01_21 match the low-skill shares from the skill panel exactly — rural 16.8% and urban 23.8% — which confirms internal consistency between the two classification schemes, both of which map to NCO major groups 6 and 9.
 
 ## Earnings Panel
 
@@ -332,7 +343,7 @@ The balanced panel flag is attached to both panels. Approximately 468 rural dist
 ## Save District Panel
 
 ```{r save-panel}
-output_dir <- "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data"
+output_dir <- "../../03_labour_polarisation_india/data"
 
 # Save skill panel
 saveRDS(skill_panel,
@@ -365,74 +376,8 @@ Both panels are saved and correctly structured. One pattern worth flagging: some
 This notebook has produced two district-level panel datasets from the harmonised PLFS microdata:
 
 - **`plfs_skill_panel.rds`** (1.1 MB) — employment shares by skill group (high/middle/low), district × round × sector × sex, with balanced panel flag
-- **`plfs_agri_panel.rds`** (0.8 MB) — agricultural versus non-agricultural employment shares, district × round × sector × sex, with balanced panel flag
+- **`plfs_agri_panel.rds`** (0.8 MB) — NCO-6/9 versus other-occupation employment shares, district × round × sector × sex, with balanced panel flag
 
 Key decisions documented here: manual weighted aggregation was used instead of `srvyr` variance estimation for computational tractability; the earnings panel was dropped due to zero values in the rural earnings variable and sparsity in urban; the balanced panel flag distinguishes ~468 rural and ~598 urban districts with consistent seven-round coverage.
 
 **Proceed to `03_polarisation.Rmd`** for the main distributional analysis.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

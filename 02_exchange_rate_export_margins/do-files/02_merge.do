@@ -9,7 +9,11 @@ clear all
 set more off
 capture log close
 
-cd "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/02_exchange_rate_export_margins"
+* Run from the repository root or this project directory.
+capture confirm file "do-files/01_clean.do"
+if _rc cd "02_exchange_rate_export_margins"
+capture mkdir "log"
+capture mkdir "output"
 
 log using "log/02_merge.log", replace text
 
@@ -45,6 +49,7 @@ count if missing(distw)
 gen ln_trade = ln(trade)
 label variable ln_trade "Log bilateral trade value (USD thousands)"
 
+* Missing trade stays missing; this flag describes observed flows only.
 gen trade_dummy = (trade > 0) if !missing(trade)
 label variable trade_dummy "1 if positive bilateral trade flow"
 
@@ -70,10 +75,12 @@ di "─────────────────────────�
 di "DATA QUALITY REPORT"
 di "──────────────────────────────────────"
 di "Total observations:              " _N
-count if trade > 0
+count if trade > 0 & !missing(trade)
 di "Observations — positive trade:   " r(N)
-count if trade == 0 | missing(trade)
-di "Observations — zero/missing trade: " r(N)
+count if trade == 0
+di "Observations — observed zero trade: " r(N)
+count if missing(trade)
+di "Observations — missing trade (not zero): " r(N)
 count if missing(volatility)
 di "Observations — missing volatility: " r(N)
 count if missing(distw)
