@@ -31,13 +31,13 @@ def get_statement_text(url):
     try:
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code != 200:
-            return None, None
+            return None, None, None
         soup = BeautifulSoup(response.text, "html.parser")
 
         # Extract text from landing-text div
         content = soup.find("div", class_="landing-text")
         if not content:
-            return None, None
+            return None, None, None
         text = content.get_text(separator=" ", strip=True)
 
         # Extract date from news-info-line_date div

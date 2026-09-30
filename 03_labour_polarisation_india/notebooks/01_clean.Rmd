@@ -9,6 +9,17 @@ output:
     highlight: tango
     df_print: paged
 ---
+**Measurement note:** The legacy fields `agri_nonagri`, `nonagri_share`, and
+`plfs_agri_panel.rds` retain their names for compatibility. They describe an
+occupation-based proxy: NCO major groups 6 and 9 versus groups 1–5, 7 and 8,
+among employed workers with a classified occupation. Group 9 includes elementary
+occupations across industries; this is not an agricultural/non-agricultural
+industry split. The urban pipeline retains `ups_nic`, but the rural crosswalk
+does not retain a comparable NIC field. A harmonised NIC-based definition would
+require a raw-data audit and recomputation of Projects 3 and 1. Existing values
+and coefficients are preserved; they must be interpreted as occupation-group
+associations, not sectoral employment estimates.
+
 ## Overview
 
 This notebook loads, harmonises, and cleans seven rounds of the Periodic Labour Force Survey (PLFS) — 2017-18 through 2023-24 — in preparation for the district-level polarisation analysis in subsequent notebooks. The PLFS is India's annual national employment survey, conducted by the National Statistical Office under MOSPI.
@@ -53,7 +64,7 @@ Before loading any data, we define the base path to the data directory and run a
 ```{r file-inventory}
 # Define the base path to the data directory
 # All seven round folders sit directly under this path
-data_path <- "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data"
+data_path <- "../../03_labour_polarisation_india/data"
 
 # List all round folders
 round_folders <- list.dirs(data_path, recursive = FALSE, full.names = FALSE)
@@ -92,7 +103,7 @@ Rather than hardcoding file paths throughout the notebook, we define a single st
 
 ```{r file-paths}
 # Base data directory
-base <- "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data"
+base <- "../../03_labour_polarisation_india/data"
 
 # Explicit mapping: round label → urban person path + rural person path
 # Only person-level files are mapped — household files are not needed
@@ -725,7 +736,6 @@ load_rural_file <- function(path, group, district_var) {
 All seven rounds loaded and stacked without errors. The combined raw dataset contains 6,315,237 person-level observations across 20 columns. One pattern worth noting: the 2017-18 rural sample (272,560) is substantially smaller than all subsequent rural rounds (500,000+). This reflects the PLFS sampling design stabilising in its second year — the 2017-18 Nesstar file captured fewer rural observations than the later rounds. This does not affect the analysis but should be acknowledged when interpreting 2017-18 rural estimates, which carry higher sampling variance.
 
 
-
 ## Employment Filter
 
 We retain only employed workers — those whose activity status indicates active employment. For urban workers, the Usual Principal Activity Status (`ups_status`) is used. For rural workers, the Current Weekly Status (`cws_status`) is used, since the rural PLFS file does not contain UPS variables. Employment codes are 11 through 23, covering own-account workers, employers, unpaid household helpers, regular wage employees, and casual wage workers. Workers with codes 31 and above — students, homemakers, unemployed, pensioners — are excluded.
@@ -869,12 +879,12 @@ The NCO code distribution reveals a structural break in rural occupation coding 
 
 This creates a structural break in the high-skill rural series that makes the three-way skill classification non-comparable across the 2020-21 to 2021-22 boundary. The urban data shows a smaller but related break — urban high-skill drops from 19.5% to 16.5% between the same rounds — suggesting the coding revision affected both sectors.
 
-We handle this in two ways. First, we flag all observations with NCO code 121 as potentially miscoded for sensitivity analysis in later notebooks. Second, we create an alternative two-way classification — agricultural versus non-agricultural — which is robust to the NCO 121 coding artifact since agricultural workers (NCO major group 6) are stably identified throughout all rounds. The three-way classification is retained for urban workers, where the coding break is smaller and the NCO 121 share was never dominant. Analysis notebooks will present results under both classification schemes.
+We handle this in two ways. First, we flag all observations with NCO code 121 as potentially miscoded for sensitivity analysis in later notebooks. Second, we create an alternative two-way classification — NCO-6/9 versus other-occupation — whose boundary is unchanged by a move between NCO groups 1 and 5; group 9 still includes elementary occupations in many industries. The three-way classification is retained for urban workers, where the coding break is smaller and the NCO 121 share was never dominant. Analysis notebooks will present results under both classification schemes.
 
 
 ## Handling the NCO Coding Break
 
-We add two variables: a flag for NCO 121 observations, and an alternative agricultural versus non-agricultural binary classification robust to the coding inconsistency.
+We add two variables: a flag for NCO 121 observations, and an alternative NCO-6/9 versus other-occupation binary classification robust to the coding inconsistency.
 
 ```{r nco-coding-fix}
 plfs_clean <- plfs_clean |>
@@ -888,11 +898,11 @@ plfs_clean <- plfs_clean |>
                     TRUE ~ FALSE
                   ),
 
-    # Alternative binary classification: agricultural vs non-agricultural
+    # Alternative binary classification: agricultural vs outside-NCO-6/9
     # Robust to NCO 121 coding artifact
-    # Agricultural = NCO major group 6 (skilled agri) + 9 (elementary, includes
+    # NCO-6/9 proxy = NCO major group 6 (skilled agri) + 9 (elementary, includes
     # agricultural labourers coded under elementary occupations)
-    # Non-agricultural = all other employed workers
+    # outside-NCO-6/9 = all other employed workers
     agri_nonagri = case_when(
       nco_1digit %in% c("6", "9") ~ "agricultural",
       nco_1digit %in% c("1", "2", "3", "4", "5", "7", "8") ~ "non_agricultural",
@@ -912,7 +922,7 @@ plfs_clean |>
   arrange(round) |>
   print()
 
-cat("\n=== Agricultural vs non-agricultural share by round ===\n")
+cat("\n=== NCO-6/9 vs other-occupation share by round ===\n")
 plfs_clean |>
   filter(!is.na(agri_nonagri)) |>
   count(round, year, file_sector, agri_nonagri) |>
@@ -925,11 +935,11 @@ plfs_clean |>
   print(n = 14)
 ```
 
-The agricultural versus non-agricultural binary classification is consistent across all seven rounds and both sectors. Rural agricultural share moves within a 2-percentage-point band (15.7% to 17.4%) and urban within 3 points (53.4% to 56.3%), with no visible break between 2020-21 and 2021-22. This validates the binary classification as the primary analytical variable for rural polarisation analysis — it is immune to the NCO 121 coding artifact because the agricultural/non-agricultural boundary is determined by NCO groups 6 and 9, which were unaffected by the coding revision.
+The NCO-6/9 versus other-occupation binary classification is consistent across all seven rounds and both sectors. Rural NCO-6/9 share moves within a 2-percentage-point band (15.7% to 17.4%) and urban within 3 points (53.4% to 56.3%), with no visible break between 2020-21 and 2021-22. This describes stability of the occupation proxy; it does not validate an agricultural classification — it is immune to the NCO 121 coding artifact because the agricultural/outside-NCO-6/9 boundary is determined by NCO groups 6 and 9, which were unaffected by the coding revision.
 
 The NCO 121 flag table confirms the scale of the coding change: in 2020-21, code 121 accounted for 19,882 rural and 12,602 urban workers, falling to 5,918 and 3,923 in 2021-22 and further declining thereafter. This is a MOSPI coding revision, not an economic reality.
 
-The dataset now contains three analytical variables: `skill_group` (three-way high/middle/low, with the NCO 121 caveat), `agri_nonagri` (robust binary classification), and `nco121_flag` (sensitivity analysis marker). The three-way classification is most reliable for urban workers; the binary classification is preferred for rural workers and for cross-round comparisons. Analysis notebooks will specify which variable is used and why.
+The dataset now contains three analytical variables: `skill_group` (three-way high/middle/low, with the NCO 121 caveat), `agri_nonagri` (occupation-based binary proxy), and `nco121_flag` (sensitivity analysis marker). The three-way classification is most reliable for urban workers; the binary classification is preferred for rural workers and for cross-round comparisons. Analysis notebooks will specify which variable is used and why.
 
 ## Final Diagnostic Summary
 
@@ -970,7 +980,7 @@ The final dataset contains 1,015,760 employed persons across 27 variables. Three
 ## Saving the Clean Dataset
 ```{r save-output}
 # Define output path
-output_path <- "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data/plfs_clean.rds"
+output_path <- "../../03_labour_polarisation_india/data/plfs_clean.rds"
 
 # Save as RDS — preserves all R types including character vectors
 saveRDS(plfs_clean, output_path)
@@ -1001,7 +1011,7 @@ This notebook has completed the following tasks:
 - Standardised variable types across all rounds to ensure consistent stacking
 - Filtered to employed workers using UPS status (urban) and CWS status (rural)
 - Applied the NCO 2015 three-way skill classification and flagged the NCO 121 coding break between 2020-21 and 2021-22
-- Created a robust agricultural vs non-agricultural binary classification unaffected by the coding break
+- Created a occupation-based binary proxy unaffected by the coding break
 - Documented the 2017-18 urban sex missingness issue and its cause
 - Saved the harmonised dataset ready for district-level aggregation
 

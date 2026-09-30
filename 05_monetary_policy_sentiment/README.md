@@ -1,12 +1,18 @@
 # Hawkish or Dovish? Monetary Policy Sentiment Across BRICS Central Banks
 
+**Scope:** LM scores cover all 302 communications. FinBERT covers only a
+40-document stratified sample (10 per bank), using leading text rather than
+full documents. Sentiment polarity is not a calibrated hawkish/dovish stance
+measure. Bank averages confound document type, language, coverage and period;
+event timing alone does not identify causal responses.
+
 ## Overview
 
 This project performs textual sentiment analysis and LDA topic modelling on monetary policy communications from four BRICS central banks — the People's Bank of China (PBOC), Reserve Bank of India (RBI), South African Reserve Bank (SARB), and the Bank of Russia (CBR) — spanning 1996 to 2026. It is the analytical second half of a two-project pipeline: Project 4 built and cleaned the corpus; this project analyses it. The question is whether BRICS central banks increasingly reference trade fragmentation and currency divergence themes post-2022, and whether sentiment around these themes differs across institutions.
 
 The motivation is that monetary policy communications carry information beyond the explicit rate decision. The tone, uncertainty, and thematic content of central bank statements signal how an institution perceives macroeconomic conditions and external risks. In a period of accelerating trade fragmentation, BRICS currency diversification discussions, and post-sanctions monetary realignment, tracking how BRICS central bank language has evolved — and whether it has diverged — is both academically relevant and directly linked to the thesis on BRICS currencies and global monetary fragmentation.
 
-The primary results document a clear post-2022 divergence: PBOC maintained persistently positive net sentiment (+0.008) while CBR and SARB converged at a persistently negative tone (−0.015). LDA topic modelling (k=9, coherence=0.505) reveals near-perfect bank-topic segregation and identifies PBOC's Global Economy & Currency topic as the only PBOC topic with negative net sentiment (−0.008) — a signal that when China's central bank explicitly engages with international monetary dynamics, its tone turns cautious in a way its domestic communications do not. FinBERT robustness checks confirm LM sentiment rankings across institutions (Spearman r=0.441, p=0.004).
+The corpus-level averages differ across banks (these are not isolated post-2022 effects): PBOC has positive mean net sentiment (+0.008), while CBR and SARB have negative means (approximately −0.015). LDA topic modelling (k=9, coherence=0.505) reveals near-perfect bank-topic segregation and identifies PBOC's Global Economy & Currency topic as a PBOC topic with comparatively negative mean sentiment (−0.008); document type, vocabulary and time coverage are alternative explanations for this pattern. FinBERT provides a limited robustness comparison on a 40-document stratified sample (10 per bank; Spearman r=0.441, p=0.004), not full-corpus validation.
 
 Honest limitations are documented throughout. PBOC's 131 statements constitute 43% of the corpus, introducing potential imbalance in topic discovery. CBR coverage begins only in 2018, limiting the pre-sanctions baseline to 14 statements. Brazil (BCB) was excluded due to Portuguese-only communications. SARB dates for 2006–2013 are approximate (year-level only).
 
@@ -38,7 +44,7 @@ LM scoring is applied to the raw text column — not the lemmatised text_clean c
 
 ### Layer 2 — FinBERT Robustness Check
 
-FinBERT (Araci, 2019) — a BERT model fine-tuned on financial text — was applied to a stratified 40-statement sample (10 per bank, evenly spaced across each bank's time range) to validate LM findings. FinBERT reads full sentences and understands context and negation, making it a methodologically distinct robustness test. Statements were truncated to 400 tokens to respect the 512-token BERT limit. The model was run using GPU acceleration (Apple MPS) via the HuggingFace transformers library.
+FinBERT (Araci, 2019) — a BERT model fine-tuned on financial text — was applied to a stratified 40-statement sample (10 per bank, evenly spaced across each bank's time range) to compare with LM findings. FinBERT reads full sentences and understands context and negation, making it a methodologically distinct robustness test. The code takes the first 400 words, then applies tokenizer truncation at 512 tokens; this is not full-document scoring. The model was run using GPU acceleration (Apple MPS) via the HuggingFace transformers library.
 
 ### Layer 3 — LDA Topic Modelling
 
@@ -116,7 +122,7 @@ Latent Dirichlet Allocation (Blei, Ng and Jordan, 2003) was applied to the lemma
 | Min | 0.0000 | 0.0000 | 0.0000 | −0.0528 |
 | Max | 0.0562 | 0.0696 | 0.0339 | +0.0449 |
 
-The mean net sentiment of −0.0027 confirms a slight negative bias across all statements — consistent with central bank communication norms where risks are discussed at least as prominently as positive developments.
+The corpus mean net sentiment is slightly negative (−0.0027); it is a dictionary score, not a validated measure of communication bias.
 
 ### Bank-Level Sentiment
 
@@ -136,7 +142,7 @@ The mean net sentiment of −0.0027 confirms a slight negative bias across all s
 | RBI | 2 | 2 | 6 | −0.0047 |
 | SARB | 9 | 0 | 1 | −0.0146 |
 
-Spearman correlation between FinBERT labels and LM net scores: r=0.441, p=0.004. Both methods produce identical bank-level sentiment rankings.
+Spearman correlation between FinBERT labels and LM net scores: r=0.441, p=0.004. This selected-sample association does not establish identical bank rankings or full-corpus agreement.
 
 ### LDA Topic Structure
 
@@ -152,7 +158,7 @@ Spearman correlation between FinBERT labels and LM net scores: r=0.441, p=0.004.
 | 8 | Global Economy & Currency | PBOC | 14 | −0.0080 | 0.0096 |
 | 9 | Financial Reform & Capital Markets | PBOC | 90 | +0.0104 | 0.0073 |
 
-**Key finding:** Near-perfect bank-topic segregation confirms that institutional communication styles are sufficiently distinct to be recovered by an unsupervised model. Topic 8 (Global Economy & Currency) is the only PBOC topic with negative net sentiment, and is semantically isolated from all other topics in the pyLDAvis intertopic distance map — the clearest signal that PBOC perceives the external monetary environment as a source of risk.
+**Key finding:** Near-perfect bank-topic segregation confirms that institutional communication styles are sufficiently distinct to be recovered by an unsupervised model. Topic 8 (Global Economy & Currency) is a PBOC topic with comparatively negative mean sentiment, and is semantically isolated from all other topics in the pyLDAvis intertopic distance map; this is a descriptive feature of the fitted topic structure, not evidence of an institutional risk assessment.
 
 ### Topic-Sentiment Interaction (Heatmap Summary)
 
@@ -211,7 +217,7 @@ PBOC's Global Economy & Currency topic (lm_net=−0.008, uncertainty=0.010) is t
 | Project | Relationship |
 |---------|-------------|
 | [04 — Central Bank Scraper](../04_central_bank_scraper/) | Provides the raw corpus (brics_mpc_statements_v2.csv) consumed by this project. Project 4 is the data engineering foundation; Project 5 is the analytical layer |
-| [Thesis — BRICS Currencies & Monetary Fragmentation](https://github.com/Aadhi0105/Master_Thesis_Brics_Currencies) | The post-2022 sentiment divergence (PBOC: +0.008 vs. CBR/SARB: −0.015) and PBOC's negative Global Economy & Currency topic directly inform the monetary fragmentation hypothesis tested in the thesis using panel econometrics |
+| [Thesis — BRICS Currencies & Monetary Fragmentation](https://github.com/Aadhi0105/Master_Thesis_Brics_Currencies) | The post-2022 sentiment divergence (PBOC: +0.008 vs. CBR/SARB: −0.015) and PBOC's negative Global Economy & Currency topic provide descriptive context for the thesis, without identifying monetary fragmentation effects |
 | [01 — China Shock in Emerging Markets](../01_china_shock_emerging_markets/) | Project 1 documents the labour market consequences of trade integration at the district level; Project 5 documents the institutional monetary policy response to the same trade fragmentation process at the central bank level |
 
 ---

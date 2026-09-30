@@ -1,5 +1,12 @@
 # Mapping Trade Exposure and Structural Change: A District-Level Analysis of India
 
+Legacy columns `nonfarm_share_90/98/05/13` measure non-farm employment per
+1,000 total residents, not a share of employed workers. Population denominators
+are PC1991, PC2001, PC2001 and PC2011 respectively. `delta_nonfarm_*` is an
+absolute change in that ratio (per 1,000 residents), not an annualised growth
+rate or percentage-point change in an employment share. Manufacturing and
+services shares use non-farm employment as their denominator.
+
 ## Overview
 
 This project maps the spatial distribution of structural economic change across Indian districts over two decades (1990–2013), using data from India's Economic and Population Censuses. It examines how the shift from agricultural to non-farm employment — a defining feature of economic development — varies geographically, and whether districts with greater proximity to trade infrastructure experienced faster or qualitatively different structural transitions.
@@ -8,7 +15,7 @@ The analysis connects to the Autor, Dorn, and Hanson (2013) framework on the loc
 
 ## Research Question
 
-How does structural change — measured as the shift in employment shares across agriculture, manufacturing, and services — vary across Indian districts between 1990 and 2013, and is this variation spatially correlated with proximity to trade infrastructure (major ports, Special Economic Zones, and industrial corridors)?
+How does structural change — measured by the non-farm employment-to-population ratio and manufacturing share of non-farm employment — vary across Indian districts between 1990 and 2013, and is this variation spatially correlated with proximity to trade infrastructure (major ports, Special Economic Zones, and industrial corridors)?
 
 ## Motivation
 
@@ -64,11 +71,11 @@ Second, the spatial distribution of structural change has direct policy implicat
 
 For each district *d* in period *t*, the following indicators are computed by aggregating SHRUG village/town-level data to the district level using Census 2011 district boundaries:
 
-1. **Non-farm employment share**: Total non-farm employment from the Economic Census divided by total population from the nearest Population Census round. This captures the extent of the district's transition away from agriculture.
+1. **non-farm employment-to-population ratio**: Total non-farm employment from the Economic Census divided by total population from the nearest Population Census round. This combines employment coverage and population variation; it does not directly measure movement out of agriculture.
 
 2. **Manufacturing employment share**: Manufacturing employment as a share of total non-farm employment. This distinguishes districts that industrialised (manufacturing-led structural change) from those that moved directly into services.
 
-3. **Structural change rate**: The change in non-farm employment share between consecutive Economic Census rounds (Δ1990–1998, Δ1998–2005, Δ2005–2013), capturing the pace of transformation over time.
+3. **Structural change rate**: The change in non-farm employment-to-population ratio between consecutive Economic Census rounds (Δ1990–1998, Δ1998–2005, Δ2005–2013), capturing the pace of transformation over time.
 
 ### Trade Exposure Proxies
 
@@ -107,10 +114,10 @@ These are proxy measures, not causal instruments. The analysis is descriptive an
 │       └── trade_exposure_proxies.csv         # Distance measures per district
 │
 ├── notebooks/
-│   ├── 01_data_acquisition.ipynb     # Download, load, and explore raw data
-│   ├── 02_structural_change.ipynb    # Compute indicators and produce choropleth maps
-│   ├── 03_trade_exposure.ipynb       # Construct proximity measures and spatial overlays
-│   └── 04_publication_maps.ipynb     # Final polished figures for portfolio display
+│   ├── notebook_1_data_acquisition.ipynb     # Download, load, and explore raw data
+│   ├── notebook_2_structural_change.ipynb    # Compute indicators and produce choropleth maps
+│   ├── notebook_3_trade_exposure.ipynb       # Construct proximity measures and spatial overlays
+│   └── notebook_4_publication_maps.ipynb     # Final polished figures for portfolio display
 │
 ├── figures/                          # Exported map images (PNG/PDF)
 │
@@ -125,7 +132,7 @@ Downloads and loads the district-level shapefiles and SHRUG data modules. Introd
 
 ### Notebook 2 — Structural Change Maps
 
-Computes the three structural change indicators defined above for each district across the four Economic Census rounds. Produces choropleth maps showing the spatial distribution of non-farm employment share, manufacturing share, and structural change rates. Includes temporal comparison panels (1990 vs. 1998 vs. 2005 vs. 2013) to visualise how the geography of industrialisation evolved over two decades. Identifies spatial clusters and patterns: coastal vs. interior, urban peripheries vs. rural hinterland, northern plains vs. southern industrial belt.
+Computes the three structural change indicators defined above for each district across the four Economic Census rounds. Produces choropleth maps showing the spatial distribution of non-farm employment-to-population ratio, manufacturing share, and structural change rates. Includes temporal comparison panels (1990 vs. 1998 vs. 2005 vs. 2013) to visualise how the geography of industrialisation evolved over two decades. Identifies spatial clusters and patterns: coastal vs. interior, urban peripheries vs. rural hinterland, northern plains vs. southern industrial belt.
 
 ### Notebook 3 — Trade Exposure Proxies and Spatial Analysis
 
@@ -151,7 +158,7 @@ Produces final, polished cartographic outputs suitable for inclusion in a workin
 
 3. **District boundaries changed between Census rounds.** The analysis uses Census 2011 district boundaries throughout. SHRUG's time-invariant identifiers (`shrid`) handle most boundary changes at the village/town level, but aggregation to 2011 district boundaries for earlier rounds involves imputation for split or merged districts.
 
-4. **SHRUG does not currently provide industry-specific employment at the district level.** A time-invariant industry classification is under development by the SHRUG team. When available, it would enable construction of a proper Bartik-style trade exposure measure, which represents a natural extension of this analysis.
+4. **Industry baseline provenance.** Project 1 constructs the district × industry baseline itself from `06_trade_exposure_maps/data/raw/shrug/shrug-ec05-csv/ec05_shrid.csv` and the SHRUG Census 2011 district key, joined on `shrid2`. The notebook keeps the first district per duplicated `shrid2`, drops unmatched locations, aggregates employment to Census 2011 districts, and divides each industry's employment by `ec05_emp_all`. This first-match treatment, particularly for Delhi, is a geographic limitation, not a validated allocation across split districts. The saved baseline CSV has 628 rows and **29** manufacturing share columns; the instrument uses **28** after excluding SHRIC 27 for lack of an HS6 mapping. SHRIC 50 is excluded as a mixed category. Manufacturing shares need not sum to one because their denominator is all covered non-farm employment. Project 6's GeoPackage supplies geography and infrastructure measures, not this industry matrix. The raw SHRUG modules are not committed.
 
 ## Dependencies
 

@@ -3,7 +3,7 @@ library(dplyr)
 library(readr)
 
 BASE <- path.expand(
-  "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data"
+  "03_labour_polarisation_india/data"
 )
 
 # Round configuration — exact file paths and column names per round

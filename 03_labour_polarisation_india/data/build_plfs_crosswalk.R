@@ -247,7 +247,7 @@ cat("UP total:", nrow(up), "districts\n\n")
 
 # ── Save ──────────────────────────────────────────────────────────────────────
 out_path <- path.expand(
-  "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/03_labour_polarisation_india/data/plfs_census2011_crosswalk.csv"
+  "03_labour_polarisation_india/data/plfs_census2011_crosswalk.csv"
 )
 write_csv(crosswalk, out_path)
 cat("Saved crosswalk to:", out_path, "\n")

@@ -9,7 +9,11 @@ clear all
 set more off
 capture log close
 
-cd "~/Desktop/UZH/Pre-Doc/Prep/BRICS-Trade-Labour-Portfolio/02_exchange_rate_export_margins"
+* Run from the repository root or this project directory.
+capture confirm file "do-files/01_clean.do"
+if _rc cd "02_exchange_rate_export_margins"
+capture mkdir "log"
+capture mkdir "output"
 
 log using "log/03_analysis.log", replace text
 
@@ -39,14 +43,9 @@ local n_ols = r(N)
 local n_zeros_dropped = `n_ppml' - `n_ols'
 di "Zeros dropped by log-OLS: " `n_zeros_dropped'
 
-* Column 3: LPM — extensive margin
-* Note: trade_dummy is perfectly explained by pair fixed effects.
-* No within-pair switching in trade participation observed in panel.
-* LPM is infeasible with this panel structure — documented here.
-reghdfe trade_dummy volatility, ///
-    absorb(pair_id exporter_year importer_year) vce(robust)
-* Result: volatility omitted due to perfect collinearity with FEs
-* Reported in table notes rather than as a separate column.
+* Extensive-margin estimation is not supported: absent BACI observations
+* have not been validated as genuine zeros in a complete pair-year universe.
+* Do not run an LPM on trade_dummy or recode missing trade to zero.
 
 * ── Section 2: BRICS Heterogeneity ──────────────────────────
 
@@ -66,9 +65,10 @@ estimates store ppml_het
 
 * ── Section 3: Russia Sensitivity Check ─────────────────────
 
-* Repeat primary specifications excluding Russia post-Feb 2022
+* Repeat primary specifications excluding Russia in 2022 and later years (annual data)
 * russia_post22 == 1 flags 197 observations where rouble volatility
-* reflects CBR capital controls, not market exchange rate dynamics.
+* may reflect capital controls and sanctions-related trade redirection.
+* This sensitivity check does not identify either mechanism.
 
 ppmlhdfe trade volatility if russia_post22 == 0, ///
     absorb(pair_id exporter_year importer_year) vce(robust)
@@ -93,8 +93,8 @@ esttab ppml_main ols_main using "output/results_table.csv", ///
              "Robust standard errors in parentheses." ///
              "* p<0.10, ** p<0.05, *** p<0.01." ///
              "Column (2) restricted to positive trade flows (ln_trade non-missing)." ///
-             "LPM (Column 3) infeasible: trade_dummy perfectly collinear with pair FE." ///
-             "No within-pair switching in trade participation observed in 23-year panel.")
+             "Extensive margin not estimated: missing trade cannot be classified as zero." ///
+             "Results describe observed trade flows only.")
 
 * Sensitivity check table
 esttab ppml_norus ols_norus using "output/sensitivity_table.csv", ///
@@ -103,7 +103,7 @@ esttab ppml_norus ols_norus using "output/sensitivity_table.csv", ///
     b(3) se(3) ///
     star(* 0.10 ** 0.05 *** 0.01) ///
     scalars("N Observations" "r2_p Pseudo R2" "r2 R-squared") ///
-    title("Table 2: Sensitivity — Excluding Russia Post-February 2022") ///
+    title("Table 2: Sensitivity — Excluding Russia in 2022 and Later Years") ///
     mtitles("(1) PPML" "(2) Log-OLS") ///
     addnotes("Sample excludes Russia exporter observations from 2022 onwards (N=197 dropped)." ///
              "Three-way fixed effects: pair, exporter×year, importer×year." ///
