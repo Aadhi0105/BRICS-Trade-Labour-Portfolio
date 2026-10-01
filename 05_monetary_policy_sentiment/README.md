@@ -102,7 +102,7 @@ Latent Dirichlet Allocation (Blei, Ng and Jordan, 2003) was applied to the lemma
     ├── lm_dictionary/
     │   └── Loughran-McDonald_MasterDictionary_1993-2024.csv
     ├── sentiment_trends.png               ← Net sentiment and uncertainty time series
-    ├── lm_vs_finbert.png                  ← LM vs FinBERT agreement scatter plots
+    ├── lm_vs_finbert.png                  ← Published FinBERT label counts (40-document sample)
     ├── coherence_scores.png               ← LDA coherence score by k
     ├── topic_prevalence.png               ← Topic assignments over time by bank
     ├── topic_sentiment_interaction.png    ← Topic-sentiment heatmaps
@@ -181,7 +181,7 @@ PBOC's Global Economy & Currency topic (lm_net=−0.008, uncertainty=0.010) is t
 | `data/brics_mpc_sentiment.csv` | LM sentiment scores — 302 rows, 14 cols |
 | `data/brics_mpc_final.csv` | Final enriched dataset — 302 rows, 17 cols |
 | `data/sentiment_trends.png` | Net sentiment and uncertainty time series by bank (rolling 3-period average) |
-| `data/lm_vs_finbert.png` | LM net score by FinBERT label — two scatter plots |
+| `data/lm_vs_finbert.png` | Published negative/neutral/positive counts, 10 documents per bank |
 | `data/coherence_scores.png` | c_v coherence score for k=4 to k=12 |
 | `data/topic_prevalence.png` | Topic assignments over time, one panel per bank |
 | `data/topic_sentiment_interaction.png` | Heatmaps of mean lm_net and lm_uncertainty by topic and bank |
@@ -237,3 +237,5 @@ PBOC's Global Economy & Currency topic (lm_net=−0.008, uncertainty=0.010) is t
 ## License
 
 MIT License for all analysis code. Loughran-McDonald dictionary under academic use terms (sraf.nd.edu). BIS CBSPEECHES data under BIS research use terms. RBI, SARB, and CBR statement text under respective institutional open access terms.
+
+The presentation refresh uses published FinBERT label counts because individual predictions were not saved. It does not rerun FinBERT or reconstruct points from an image. The original notebook scatter is available after model execution as `data/lm_vs_finbert_scatter.png`.

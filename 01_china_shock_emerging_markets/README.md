@@ -244,7 +244,7 @@ The wage point estimate (−0.220) is the most economically meaningful result: d
 | `data/hs6_shric_crosswalk.csv` | HS6 → SHRIC concordance — 4,138 codes, 28 manufacturing SHRICs |
 | `data/summary_statistics.csv` | Working-paper summary statistics — mean, SD, quartiles, N |
 | `data/plfs_census2011_crosswalk.csv` | PLFS code → Census 2011 district name — 715 districts, 100% match |
-| `figures/fig01_geographic_distribution.png` | Four-panel map: instrument, outside-NCO-6/9 share, log wages, port distance |
+| `figures/fig01_geographic_distribution.png` | Historical four-panel map; old employment label means outside-NCO-6/9 share. Refresh needs raw SHRUG location keys. |
 | `figures/fig02_industry_composition.png` | SHRIC shares by instrument quartile (Q1 vs Q4) |
 | `figures/fig03_binscatter.png` | Binscatter: instrument vs outside-NCO-6/9 share, wages, middle-skill share |
 | `figures/fig04_time_series.png` | Time series: mean instrument and outcomes by year, 2017–2022 |

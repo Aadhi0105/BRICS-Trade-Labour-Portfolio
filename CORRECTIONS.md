@@ -28,5 +28,13 @@
 3. Audit BACI missingness and construct a validated full pair-year universe before estimating an extensive margin. No missing observation was converted to zero.
 4. Review SHRUG missing-industry assumptions and duplicated/split district-key allocation (especially Delhi) before changing the instrument. No new allocation or estimate was invented.
 5. Full raw-data reproduction is blocked by uncommitted BACI, IFS/GeoDist, PLFS, SHRUG and concordance inputs. Exact historical environment versions, complete outcomes-export provenance and runtime benchmarks are incomplete. No full Stata/R/Python estimation rerun was claimed.
-6. Existing PNG/PDF figures and historical Word documents are preserved as prior-run artefacts and can retain old labels. Corrected plot-generating sources and READMEs govern interpretation; rerender those figures/documents before using them externally. The obsolete Project 1 first-stage PNG containing a KP label was removed; regenerate it from the corrected notebook. No valid numerical estimates were removed from the documented result tables.
+6. Project 1’s geographic PNG still has a historical occupation label. Regeneration requires the uncommitted SHRUG location-name and district-key files; no replacement geographic join was invented. The remaining maintained figures and Project 2/4 reports were refreshed in the presentation pass below.
 7. Live scraping would require a new retrieval/failure manifest and verification of original PDF URLs and approximate SARB dates; this pass reproduces the saved corpus only. FinBERT full-corpus scoring, balanced-corpus checks and multi-seed LDA validation remain unperformed.
+
+## Presentation cleanup
+
+- Refreshed Project 1’s descriptive plots and coefficient chart and restored its first-stage chart with coefficient, HC3 SE, t-statistic and partial R². Fixed state-and-year FE labels and distinguished the unweighted visual line from the weighted first-stage estimate.
+- Re-exported Project 6 maps and four publication PDFs using the existing saved panels, with employment-to-population units and state-based corridor labels.
+- Refreshed Project 5’s descriptive plots with corpus/date caveats. Replaced the FinBERT scatter export with the already-published 40-document label counts because document-level predictions were not saved; no model was rescored. The notebook can produce a separate scatter after rerunning the original sample.
+- Updated all three Project 2 Word reports and the Project 4 Word/PDF report to match the corrected definitions, with readable headings, tables and pagination.
+- Replayed only the existing Project 1 specifications for chart reproduction and checked the first-stage diagnostics and three IV coefficients/SEs against their published rounded values. All empirical CSV/RDS/DTA/GeoPackage/GeoJSON snapshots and saved Stata result tables remain unchanged. No new specifications, NLP fits or raw-data rebuilds were introduced.
