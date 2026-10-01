@@ -6,7 +6,7 @@ This repository preserves analysis snapshots, not a fully self-contained raw-dat
 
 - Python: use a dedicated environment (Python 3.10+ is a practical starting point), then `python -m pip install -r requirements.txt`. Install the NLP model with `python -m spacy download en_core_web_sm`. The requirements list direct imports, not a tested version lock; the original environment was not recorded completely. FinBERT downloads `ProsusAI/finbert` through transformers; GPU/MPS availability affects runtime, and CPU can be used. Selenium requires Chrome and a compatible driver; webdriver-manager may download the driver.
 - R: install `haven`, `tidyverse`, `labelled`, `janitor`, `srvyr`, `ggplot2`, `fixest`, `patchwork`, `sf`, `rmarkdown` and `knitr`. Rendering requires Pandoc. Raw PLFS conversion uses `nesstar-converter` if starting from source formats rather than prepared DTA files. Exact historical package versions are not locked.
-- Stata: a licensed installation plus `ftools`, `reghdfe`, `ppmlhdfe`, `rangestat`, `estout` and `require` (SSC). Original Stata version is not specified. No Stata execution was performed in this correction pass.
+- Stata: a licensed installation plus `ftools`, `reghdfe`, `ppmlhdfe`, `rangestat`, `estout` and `require` (SSC). The historical Word reports record Stata 18. No Stata execution was performed in this correction pass.
 
 ## Data inventory
 
@@ -36,11 +36,21 @@ Raw source data are subject to their providers' terms. Repository code licensing
 
 ## Runtime expectations
 
-The original Project 2 documentation reports approximately 10–11 minutes for BACI/IFS cleaning, under one minute for merge and under four minutes for estimation. These are historical machine-specific timings. Offline assembly of 302 communications is a small, seconds-scale task. Scraping has deliberate request/page delays and can take minutes or longer. PLFS/SHRUG/BACI assembly, spaCy preprocessing, model downloads and the LDA coherence sweep vary substantially with hardware and source size; no reliable full-run benchmarks are available. A complete end-to-end rerun was not performed for these corrections.
+The original Project 2 documentation reports approximately 10–11 minutes for BACI cleaning plus four minutes for IFS/volatility construction, under one minute for merge and under four minutes for estimation. These are historical machine-specific timings. Offline assembly of 302 communications is a small, seconds-scale task. Scraping has deliberate request/page delays and can take minutes or longer. PLFS/SHRUG/BACI assembly, spaCy preprocessing, model downloads and the LDA coherence sweep vary substantially with hardware and source size; no reliable full-run benchmarks are available. A complete end-to-end rerun was not performed for these corrections.
 
 ## Labels and preserved outputs
 
 - Project 3's `agricultural`/`non_agricultural` category strings and Project 1's `nonagri_share` remain compatibility identifiers for NCO-6/9 versus other occupations. They are not NIC industry categories.
 - Project 6's `nonfarm_share_*` fields contain employment per **1,000 population**, with nearest-Census denominators. `delta_nonfarm_*` is an absolute difference in those units. Manufacturing shares use non-farm employment as denominator.
-- Saved PNG/PDF figures and historical Word documentation retain the original run and may contain superseded terminology. Read the corrected definitions before interpreting them. Updated notebook/Rmd plot labels apply on a future render. Project 3's stale compiled HTML was removed; underlying RDS/CSV results were preserved.
+- Figures and Project 2/4 reports were refreshed as described below. Project 1’s geographic PNG remains a historical export: interpret its employment panel as the outside-NCO-6/9 occupation proxy. Project 3’s stale compiled HTML was removed; underlying RDS/CSV results were preserved.
 - Notebook outputs containing obsolete Project 1/6 claims and Project 4 local paths were cleared. Source cells, numerical results in READMEs, and underlying data remain available.
+
+## Presentation refresh
+
+Run `python scripts/refresh_presentation_figures.py` from a checkout with the plotting dependencies installed (`numpy`, `pandas`, `matplotlib`, `seaborn`, `scipy`, `statsmodels`, `linearmodels`, `geopandas`, `mapclassify`). This writes figure PNG/PDF exports in place from committed panels and scores. Use a separate checkout to compare outputs. Allow several minutes for detailed district geometry rendering; no live download, scraping, NLP fitting or upstream data assembly is performed.
+
+The script replays the original Project 1 chart specifications, checks the published rounded first-stage diagnostics and three primary IV coefficients/SEs, and verifies empirical data hashes before and after. This is chart reproduction, not new inference or an end-to-end replication. Project 1’s geographic map is skipped because `shrid_loc_names.csv` and `shrid_pc11dist_key.csv` are not committed. Its corrected source is ready to rerun when these inputs are supplied.
+
+Project 5’s `lm_vs_finbert.png` displays the published negative/neutral/positive counts for the 40-document sample. The original document-level predictions were not saved, so this refresh does not recreate the scatter or score new text. Rerunning the original FinBERT notebook can produce `lm_vs_finbert_scatter.png` separately. The published sample correlation is reported as historical, not recalculated from counts. LM/topic plots use saved scores and assignments; the coherence-sweep export is unchanged.
+
+The three Project 2 DOCX reports and Project 4 DOCX/PDF report were edited and visually checked after rendering. Project 2 numerical result tables were retained; its Stata models were not rerun. The Project 4 PDF is exported from the updated Word report. Raw RBI and infrastructure reference PDFs are unchanged.
